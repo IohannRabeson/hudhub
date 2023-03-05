@@ -1,5 +1,4 @@
 use std::ffi::{OsStr, OsString};
-use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use zip::result::ZipError;
 
@@ -16,8 +15,8 @@ pub enum ExtractError {
 }
 
 pub fn extract(archive: &Path, destination_directory: &Path) -> Result<PathBuf, ExtractError> {
-    match archive.extension().map(|extension| extension.as_bytes()) {
-        Some(b"zip") => extract_zip(archive, destination_directory),
+    match archive.extension().and_then(|extension|extension.to_str()) {
+        Some("zip") => extract_zip(archive, destination_directory),
         _ => Err(ExtractError::UnsupportedArchiveType(archive.to_path_buf())),
     }
 }
