@@ -12,6 +12,7 @@ iced = { version = "0.8.0", features = ["tokio"] }
 iced_views = "0.1.0"
 platform-dirs = "0.3.0"
 serde = { version = "1.0.152", features = ["derive"] }
+sevenz-rust = { version = "0.2.8", default-features = false, features = ["zstd"] }
 steamlocate = "1.1.1"
 tempdir = "0.3.7"
 thiserror = "1.0.39"
