@@ -4,10 +4,11 @@
 
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
+use serde::{Serialize, Deserialize};
 
 const INFO_VDF_FILE_NAME: &str = "info.vdf";
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct HudName(String);
 
 impl HudName {

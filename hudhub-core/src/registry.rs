@@ -4,14 +4,16 @@ use chrono::{DateTime, Utc};
 use enum_as_inner::EnumAsInner;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct Registry {
     info: BTreeMap<HudName, HudInfo>,
 }
 
 impl Registry {
     pub fn new() -> Self {
-        Self { info: BTreeMap::new() }
+        Registry::default()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &HudInfo> {
@@ -44,13 +46,14 @@ impl Registry {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HudInfo {
     pub name: HudName,
     pub source: Source,
     pub install: Install,
 }
 
-#[derive(Clone, Debug, EnumAsInner)]
+#[derive(Clone, Debug, EnumAsInner, Serialize, Deserialize)]
 pub enum Install {
     None,
     Installed { path: PathBuf, when: DateTime<Utc> },

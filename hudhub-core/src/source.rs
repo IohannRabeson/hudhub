@@ -1,8 +1,9 @@
 use crate::{OpenPackageError, Package};
 use std::path::{Path, PathBuf};
 use zip::result::ZipError;
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Source {
     DownloadUrl(String),
 }
