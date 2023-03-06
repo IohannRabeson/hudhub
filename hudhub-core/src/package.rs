@@ -4,6 +4,7 @@
 
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
+use keyvalues_parser::Vdf;
 use serde::{Serialize, Deserialize};
 
 const INFO_VDF_FILE_NAME: &str = "info.vdf";
@@ -43,12 +44,9 @@ impl HudDirectory {
     }
 
     fn parse_name_in_vdf(input: &str) -> Option<HudName> {
-        const QUOTE: char = '\"';
-        let first_quote_pos = input.find(QUOTE)?;
-        let second_quote_pos = input[first_quote_pos + 1..].find(QUOTE)? + first_quote_pos;
-        let name = input[first_quote_pos + 1..second_quote_pos + 1].to_string();
+        let vdf = Vdf::parse(input).ok()?;
 
-        Some(HudName(name))
+        Some(HudName(vdf.key.to_string()))
     }
 }
 

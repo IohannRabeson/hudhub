@@ -47,6 +47,7 @@ impl Message {
 struct Application {
     views: Views<View>,
     state: State,
+    is_modifying: bool,
 }
 
 impl Application {
@@ -83,6 +84,7 @@ impl IcedApplication for Application {
             Self {
                 views: Views::new(View::List),
                 state: State::default(),
+                is_modifying: false
             },
             commands::load_state(Self::get_application_state_file_path()),
         )
@@ -119,12 +121,15 @@ impl IcedApplication for Application {
             }
             Message::Error(title, error) => {
                 println!("{}: {}", title, error);
+                self.is_modifying = false;
                 if let Some(View::Add(context)) = self.views.current_mut() {
                     context.error = Some(error);
                 }
             }
             Message::StateSaved => {}
-            Message::StateLoaded(state) => { self.state = state; }
+            Message::StateLoaded(state) => {
+                self.state = state;
+            }
             Message::Quit => {
                 return Command::batch([
                     save_state(self.state.clone(), Self::get_application_state_file_path()),
@@ -144,6 +149,8 @@ impl IcedApplication for Application {
 
                         commands.push(commands::install_hud(info.source.clone(), hud_name, huds_directory));
 
+                        self.is_modifying = true;
+
                         return Command::batch(commands.into_iter())
                     }
                 }
@@ -152,15 +159,18 @@ impl IcedApplication for Application {
                 if let Some(info) = self.state.registry.get(&hud_name) {
                     if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
                         assert!(matches!(info.install, Install::Installed { .. }));
+                        self.is_modifying = true;
                         return commands::uninstall_hud(&info, huds_directory)
                     }
                 }
             }
             Message::InstallationFinished(hud_name, install) => {
                 self.state.registry.set_install(&hud_name, install);
+                self.is_modifying = false;
             }
             Message::UninstallationFinished(hud_name) => {
                 self.state.registry.set_install(&hud_name, Install::None);
+                self.is_modifying = false;
             }
         }
 
@@ -169,7 +179,7 @@ impl IcedApplication for Application {
 
     fn view(&self) -> Element<Self::Message, Renderer<Self::Theme>> {
         match self.views.current().expect("current view") {
-            View::List => ui::list_view(&self.state.registry),
+            View::List => ui::list_view(&self.state.registry, self.is_modifying),
             View::Add(context) => ui::add_view(&context),
         }
     }
@@ -293,20 +303,31 @@ mod ui {
     use iced::widget::{button, column, row, scrollable, text, text_input};
     use iced::Element;
 
-    pub fn list_view(registry: &Registry) -> Element<Message> {
+    pub fn list_view(registry: &Registry, is_modifying: bool) -> Element<Message> {
         column![
             button("Add").on_press(Message::ShowAdd),
             scrollable(registry
             .iter()
-            .fold(column![], |c, info| c.push(hud_info_view(info))))
+            .fold(column![], |c, info| c.push(hud_info_view(info, is_modifying))))
         ]
         .into()
     }
 
-    fn hud_info_view(info: &HudInfo) -> Element<Message> {
+    fn hud_info_view(info: &HudInfo, is_modifying: bool) -> Element<Message> {
+        let mut install_button = button("Install");
+        let mut uninstall_button = button("Uninstall");
+
+        if !is_modifying {
+            if info.source != Source::None {
+                install_button = install_button.on_press(Message::Install(info.name.clone()));
+            }
+            uninstall_button = uninstall_button.on_press(Message::Uninstall(info.name.clone()));
+        }
+
+
         match info.install {
-            Install::None => { row![text(&info.name), button("Install").on_press(Message::Install(info.name.clone()))] }
-            Install::Installed { .. } => { row![text(&info.name), button("Uninstall").on_press(Message::Uninstall(info.name.clone()))] }
+            Install::None => { row![text(&info.name), install_button] }
+            Install::Installed { .. } => { row![text(&info.name), uninstall_button] }
             Install::Failed { .. } => { row![text(&info.name)] }
         }
         .into()

@@ -3,8 +3,9 @@ use std::path::{Path, PathBuf};
 use serde::{Serialize, Deserialize};
 use crate::source::archives::{ArchiveError, extract_archive};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum Source {
+    None,
     DownloadUrl(String),
 }
 
@@ -31,6 +32,7 @@ pub enum FetchError {
 
 pub async fn fetch_package(source: Source, directory: impl AsRef<Path>) -> Result<Package, FetchError> {
     let package_root_directory = match source {
+        Source::None => { panic!("Trying to fetch a package without source") }
         Source::DownloadUrl(url) => {
             let archive_file_path = download_url(&url, &directory).await?;
 
@@ -110,6 +112,27 @@ mod archives {
     }
 }
 
+fn get_file_name(url: &str, response: &reqwest::Response) -> Option<String> {
+    if let Some(file_name) = extract_file_name(url) {
+        if is_valid_filename_with_extension(&file_name) {
+            return Some(file_name)
+        }
+    }
+
+    if let Some(file_name) = extract_file_name(response.url().path()) {
+        if is_valid_filename_with_extension(&file_name) {
+            return Some(file_name)
+        }
+    }
+
+    None
+}
+
+
+fn is_valid_filename_with_extension(file_name: &str) -> bool {
+    PathBuf::from(file_name).extension().is_some()
+}
+
 fn extract_file_name(url: &str) -> Option<String> {
     url.rfind('/').and_then(|position| {
         if position + 1 >= url.len() {
@@ -128,7 +151,7 @@ fn extract_file_name(url: &str) -> Option<String> {
 async fn download_url(url: &str, directory: impl AsRef<Path>) -> Result<PathBuf, FetchError> {
     let directory = directory.as_ref();
     let response = reqwest::get(url).await?;
-    let file_name = extract_file_name(url).ok_or(FetchError::InvalidUrl(url.to_string()))?;
+    let file_name = get_file_name(url, &response).ok_or(FetchError::InvalidUrl(url.to_string()))?;
     let archive_file_path = directory.join(file_name);
     let content = response.bytes().await?;
 
@@ -174,4 +197,36 @@ mod tests {
         assert_eq!(package.hud_directories.len(), 1);
         assert_eq!(package.hud_directories[0].name, HudName::new("3hud"));
     }
+
+    #[tokio::test]
+    async fn test_fetch_rar() {
+        let directory = TempDir::new("test_fetch_rar").unwrap();
+        let source = Source::DownloadUrl("https://gamebanana.com/dl/815166".into());
+        let package = fetch_package(source, directory.path()).await.unwrap();
+
+        assert_eq!(package.hud_directories.len(), 1);
+        assert_eq!(package.hud_directories[0].name, HudName::new("HL Hud"));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_7z_gamebanana() {
+        let directory = TempDir::new("test_fetch_7z_gamebanana").unwrap();
+        let source = Source::DownloadUrl("https://gamebanana.com/dl/601806".into());
+        let package = fetch_package(source, directory.path()).await.unwrap();
+
+        assert_eq!(package.hud_directories.len(), 1);
+        assert_eq!(package.hud_directories[0].name, HudName::new("7hud"));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_gamebanana_hud_name_without_quotes() {
+        let directory = TempDir::new("test_fetch_gamebanana").unwrap();
+        let source = Source::DownloadUrl("https://gamebanana.com/dl/601806".into());
+        let package = fetch_package(source, directory.path()).await.unwrap();
+
+        assert_eq!(package.hud_directories.len(), 1);
+        assert_eq!(package.hud_directories[0].name, HudName::new("7hud"));
+    }
+
+
 }

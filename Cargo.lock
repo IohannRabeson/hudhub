@@ -1340,6 +1340,7 @@ dependencies = [
  "chrono",
  "enum-as-inner",
  "fs_extra",
+ "keyvalues-parser",
  "nom 7.1.3",
  "reqwest",
  "serde",
