@@ -1,0 +1,12 @@
+[package]
+name = "hudhub"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hudhub-core = { path = "../hudhub-core" }
+iced = { version = "0.8.0", features = ["tokio"] }
+iced_views = "0.1.0"
+tempdir = "0.3.7"
