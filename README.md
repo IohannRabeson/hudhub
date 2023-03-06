@@ -1,2 +1,2 @@
-# tf2-hud-manager
-A manager for Team Fortress HUDs
+# Hud Hub
+Smart HUD manager for Team Fortress 2.

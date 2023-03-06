@@ -1,0 +1,3 @@
+[workspace]
+members = ["hudhub", "hudhub-core"]
+resolver="2"
