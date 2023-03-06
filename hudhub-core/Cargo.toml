@@ -15,7 +15,9 @@ serde = { version = "1.0.152", features = ["derive"] }
 tempdir = "0.3.7"
 thiserror = "1.0.38"
 tokio = { version = "1.26.0", features = ["fs", "macros"] }
+
 zip = "0.6.4"
+sevenz-rust = { version = "0.2.8", default-features = false, features = ["zstd"] }
 
 [dev-dependencies]
 test-case = "3.0.0"

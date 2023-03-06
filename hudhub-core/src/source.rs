@@ -62,16 +62,16 @@ mod archives {
     use std::path::{Path, PathBuf};
 
     pub fn extract_archive(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
-        match archive_file_path.extension().and_then(|extension|extension.to_str()) {
+        match archive_file_path.extension().and_then(|extension| extension.to_str()) {
             Some("zip") => extract_zip(archive_file_path, destination_directory),
-            //Some("7z") => extract_7z(archive_file_path, destination_directory),
+            Some("7z") => extract_7z(archive_file_path, destination_directory),
             _ => Err(ArchiveError::UnsupportedArchiveType(archive_file_path.to_path_buf())),
         }
     }
 
     fn extract_zip(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
         let destination_directory = destination_directory.as_ref();
-        let archive_file = std::fs::File::open(archive_file_path).map_err(|e|ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
+        let archive_file = std::fs::File::open(archive_file_path).map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
         let mut archive = zip::ZipArchive::new(archive_file)
             .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
         let mut hud_directory: Option<PathBuf> = None;
@@ -91,15 +91,23 @@ mod archives {
             let destination_path = destination_directory.join(zip_file_name);
 
             if zip_file.name().ends_with("/") {
-                std::fs::create_dir_all(&destination_path).map_err(|e|ArchiveError::CreateDirectoryFailed(destination_path.to_path_buf(), e))?;
+                std::fs::create_dir_all(&destination_path).map_err(|e| ArchiveError::CreateDirectoryFailed(destination_path.to_path_buf(), e))?;
             } else {
-                let mut out_file = std::fs::File::create(&destination_path).map_err(|e|ArchiveError::CreateFileFailed(destination_path.to_path_buf(), e))?;
+                let mut out_file = std::fs::File::create(&destination_path).map_err(|e| ArchiveError::CreateFileFailed(destination_path.to_path_buf(), e))?;
 
-                std::io::copy(&mut zip_file, &mut out_file).map_err(|e|ArchiveError::CopyFileFailed(destination_path.to_path_buf(), e))?;
+                std::io::copy(&mut zip_file, &mut out_file).map_err(|e| ArchiveError::CopyFileFailed(destination_path.to_path_buf(), e))?;
             }
         }
 
         Ok(hud_directory.expect("root directory"))
+    }
+
+    fn extract_7z(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
+        let destination_directory = destination_directory.as_ref();
+
+        sevenz_rust::decompress_file(archive_file_path, destination_directory).map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
+
+        Ok(destination_directory.to_path_buf())
     }
 }
 
@@ -110,7 +118,7 @@ fn extract_file_name(url: &str) -> Option<String> {
         }
 
         if let Some(end_position) = url[position + 1..].find('?') {
-            Some(url[position + 1..end_position+position + 1].to_string())
+            Some(url[position + 1..end_position + position + 1].to_string())
         }
         else {
             Some(url[position + 1..].to_string())
@@ -149,12 +157,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch() {
-        let directory = TempDir::new("test_fetch").unwrap();
+    async fn test_fetch_zip() {
+        let directory = TempDir::new("test_fetch_zip").unwrap();
         let source = Source::DownloadUrl("https://github.com/n0kk/ahud/archive/refs/heads/master.zip".into());
         let package = fetch_package(source, directory.path()).await.unwrap();
 
         assert_eq!(package.hud_directories.len(), 1);
         assert_eq!(package.hud_directories[0].name, HudName::new("ahud"));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_7z() {
+        let directory = TempDir::new("test_fetch_7z").unwrap();
+        let source = Source::DownloadUrl("https://www.dropbox.com/s/cwwmppnn3nn68av/3HUD.7z?dl=1".into());
+        let package = fetch_package(source, directory.path()).await.unwrap();
+
+        assert_eq!(package.hud_directories.len(), 1);
+        assert_eq!(package.hud_directories[0].name, HudName::new("3hud"));
     }
 }
