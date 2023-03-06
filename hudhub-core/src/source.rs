@@ -82,7 +82,12 @@ fn extract_file_name(url: &str) -> Option<String> {
             return None;
         }
 
-        Some(url[position + 1..].to_string())
+        if let Some(end_position) = url[position + 1..].find('?') {
+            Some(url[position + 1..end_position+position + 1].to_string())
+        }
+        else {
+            Some(url[position + 1..].to_string())
+        }
     })
 }
 
@@ -110,6 +115,7 @@ mod tests {
         Some(String::from("master.zip"))
     )]
     #[test_case("https://github.com/n0kk/ahud/archive/refs/heads/", None)]
+    #[test_case("https://www.dropbox.com/s/cwwmppnn3nn68av/3HUD.7z?dl=1", Some(String::from("3HUD.7z")))]
     #[test_case("", None)]
     fn test_extract_file_name(input: &str, expected: Option<String>) {
         assert_eq!(expected, extract_file_name(input))
