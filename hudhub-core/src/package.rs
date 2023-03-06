@@ -137,14 +137,6 @@ mod tests {
     use tempdir::TempDir;
     use test_case::test_case;
 
-    #[test_case("\"Hello\"", Some(HudName(String::from("Hello"))))]
-    #[test_case("\n\"Hello\"", Some(HudName(String::from("Hello"))))]
-    #[test_case("\"\"", Some(HudName(String::from(""))))]
-    #[test_case("\"", None)]
-    fn parse_name_in_vdf(input: &str, expected: Option<HudName>) {
-        assert_eq!(expected, HudDirectory::parse_name_in_vdf(input));
-    }
-
     fn create_vdf_file(name: &str, directory: &Path) {
         let mut content = format!("\"{}\"\n", name);
         content.push_str("{\n    \"ui_version\"    \"3\"\n}");

@@ -62,10 +62,15 @@ mod archives {
 
     use std::path::{Path, PathBuf};
 
+    #[derive(thiserror::Error, Debug)]
+    #[error("Failed to unrar archive: {0}")]
+    struct RarError(String);
+
     pub fn extract_archive(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
         match archive_file_path.extension().and_then(|extension| extension.to_str()) {
             Some("zip") => extract_zip(archive_file_path, destination_directory),
             Some("7z") => extract_7z(archive_file_path, destination_directory),
+            Some("rar") => extract_rar(archive_file_path, destination_directory),
             _ => Err(ArchiveError::UnsupportedArchiveType(archive_file_path.to_path_buf())),
         }
     }
@@ -107,6 +112,18 @@ mod archives {
         let destination_directory = destination_directory.as_ref();
 
         sevenz_rust::decompress_file(archive_file_path, destination_directory).map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
+
+        Ok(destination_directory.to_path_buf())
+    }
+
+    fn extract_rar(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
+        let destination_directory = destination_directory.as_ref();
+
+        unrar::Archive::new(archive_file_path)
+            .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?
+            .extract_to(destination_directory).map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?
+            .process().map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?;
+
 
         Ok(destination_directory.to_path_buf())
     }
