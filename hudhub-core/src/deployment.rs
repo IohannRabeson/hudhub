@@ -1,7 +1,7 @@
 use crate::source::Source;
 use crate::{fetch_package, FetchError, HudDirectory, HudName, Install, OpenHudDirectoryError};
 use chrono::Utc;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempdir::TempDir;
 
 #[derive(thiserror::Error, Debug)]
@@ -18,8 +18,8 @@ pub enum InstallError {
     FailedToMoveDirectory(#[from] fs_extra::error::Error),
 }
 
-pub async fn install(source: Source, name: HudName, huds_directory: PathBuf) -> Result<Install, InstallError> {
-    Ok(match install_impl(source, name, huds_directory).await {
+pub async fn install(source: Source, name: HudName, huds_directory: PathBuf) -> Install {
+    match install_impl(source, name, huds_directory).await {
         Ok(hud_directory) => Install::Installed {
             path: hud_directory.path.clone(),
             when: Utc::now(),
@@ -27,7 +27,7 @@ pub async fn install(source: Source, name: HudName, huds_directory: PathBuf) -> 
         Err(error) => Install::Failed {
             error: error.to_string(),
         },
-    })
+    }
 }
 
 async fn install_impl(source: Source, name: HudName, huds_directory: PathBuf) -> Result<HudDirectory, InstallError> {
@@ -49,10 +49,10 @@ async fn install_impl(source: Source, name: HudName, huds_directory: PathBuf) ->
     Ok(HudDirectory::scan(&destination_directory).expect("scan destination hud directory"))
 }
 
-pub async fn uninstall(hud: HudDirectory, huds_directory: PathBuf) -> Result<(), std::io::Error> {
-    assert!(hud.path.starts_with(&huds_directory));
+pub async fn uninstall(hud_directory: &Path, huds_directory: PathBuf) -> Result<(), std::io::Error> {
+    assert!(hud_directory.starts_with(&huds_directory));
 
-    tokio::fs::remove_dir_all(hud.path).await
+    tokio::fs::remove_dir_all(hud_directory).await
 }
 
 #[cfg(test)]
@@ -62,14 +62,24 @@ mod tests {
     use tempdir::TempDir;
 
     #[tokio::test]
-    async fn test_install() {
+    async fn test_install_zip() {
         let source = Source::DownloadUrl("https://github.com/n0kk/ahud/archive/refs/heads/master.zip".into());
-        let directory = TempDir::new("test_install").unwrap();
+        let directory = TempDir::new("test_install_zip").unwrap();
         let install = install(source, HudName::new("ahud"), directory.path().to_path_buf())
-            .await
-            .unwrap();
+            .await;
         let hud = HudDirectory::scan(install.as_installed().unwrap().0).unwrap();
 
         assert_eq!(HudName::new("ahud"), hud.name);
+    }
+
+    #[tokio::test]
+    async fn test_install_7z() {
+        let source = Source::DownloadUrl("https://www.dropbox.com/s/cwwmppnn3nn68av/3HUD.7z?dl=1".into());
+        let directory = TempDir::new("test_install_7z").unwrap();
+        let install = install(source, HudName::new("3hud"), directory.path().to_path_buf())
+            .await;
+        let hud = HudDirectory::scan(install.as_installed().unwrap().0).unwrap();
+
+        assert_eq!(HudName::new("3hud"), hud.name);
     }
 }

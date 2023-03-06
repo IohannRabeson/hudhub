@@ -1,6 +1,5 @@
 use crate::{OpenPackageError, Package};
 use std::path::{Path, PathBuf};
-use zip::result::ZipError;
 use serde::{Serialize, Deserialize};
 use crate::source::archives::{ArchiveError, extract_archive};
 

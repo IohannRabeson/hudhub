@@ -39,6 +39,12 @@ impl Registry {
         self.info.get(name)
     }
 
+    pub fn get_installed(&self) -> Option<&HudInfo> {
+        self.info.values().find(|info|{
+            matches!(info.install, Install::Installed { .. })
+        })
+    }
+
     pub fn set_install(&mut self, name: &HudName, install: Install) {
         if let Some(info) = self.info.get_mut(name) {
             info.install = install;

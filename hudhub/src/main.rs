@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 use iced::{Application as IcedApplication, Command, Element, event, Renderer, Settings, subscription, Subscription, Theme, window};
-use iced::keyboard::KeyCode::Comma;
 use iced_views::Views;
-use tempdir::TempDir;
-use hudhub_core::{HudName, Registry, Source};
+use hudhub_core::{HudName, Install, Source};
 use state::State;
 use crate::commands::save_state;
 use platform_dirs::AppDirs;
@@ -26,10 +24,14 @@ pub enum Message {
     ShowAdd,
     DownloadUrlChanged(String),
     AddHuds(Source, Vec<HudName>),
+    Install(HudName),
+    Uninstall(HudName),
     ScanPackageToAdd(Source),
     Error(String, String),
     StateSaved,
     StateLoaded(State),
+    InstallationFinished(HudName, Install),
+    UninstallationFinished(HudName),
     Quit,
 }
 
@@ -63,6 +65,10 @@ impl Application {
         const TEAMFORTRESS2_STEAMAPPID: u32 = 440;
 
         steamdir.app(&TEAMFORTRESS2_STEAMAPPID).map(|dir|dir.path.clone())
+    }
+
+    fn get_team_fortress_huds_directory() -> Option<PathBuf> {
+        Self::get_team_fortress_directory().map(|directory|directory.join("tf").join("custom"))
     }
 }
 
@@ -125,6 +131,37 @@ impl IcedApplication for Application {
                     window::close(),
                 ])
             }
+            Message::Install(hud_name) => {
+                if let Some(info) = self.state.registry.get(&hud_name) {
+                    if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
+                        assert!(!matches!(info.install, Install::Installed { .. }));
+
+                        let mut commands = Vec::new();
+
+                        if let Some(installed_info) = self.state.registry.get_installed() {
+                            commands.push(commands::uninstall_hud(installed_info, huds_directory.clone()));
+                        }
+
+                        commands.push(commands::install_hud(info.source.clone(), hud_name, huds_directory));
+
+                        return Command::batch(commands.into_iter())
+                    }
+                }
+            }
+            Message::Uninstall(hud_name) => {
+                if let Some(info) = self.state.registry.get(&hud_name) {
+                    if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
+                        assert!(matches!(info.install, Install::Installed { .. }));
+                        return commands::uninstall_hud(&info, huds_directory)
+                    }
+                }
+            }
+            Message::InstallationFinished(hud_name, install) => {
+                self.state.registry.set_install(&hud_name, install);
+            }
+            Message::UninstallationFinished(hud_name) => {
+                self.state.registry.set_install(&hud_name, Install::None);
+            }
         }
 
         Command::none()
@@ -153,10 +190,10 @@ impl IcedApplication for Application {
 }
 
 mod commands {
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use iced::Command;
     use tempdir::TempDir;
-    use hudhub_core::{fetch_package, FetchError, HudName, Source};
+    use hudhub_core::{fetch_package, FetchError, HudInfo, HudName, install, Source, uninstall};
     use crate::Message;
     use crate::state::State;
 
@@ -167,13 +204,6 @@ mod commands {
 
         #[error("Failed to create a temporary directory: {0}")]
         FailedToCreateTempDirectory(std::io::Error),
-    }
-
-    async fn get_hud_names(source: Source) -> Result<Vec<HudName>, ScanPackageError> {
-        let temp_directory = TempDir::new("fetch_package_name").map_err(ScanPackageError::FailedToCreateTempDirectory)?;
-        let package = fetch_package(source.clone(), temp_directory.path()).await?;
-
-        Ok(package.hud_names().cloned().collect())
     }
 
     pub fn scan_package(source: Source) -> Command<Message> {
@@ -193,6 +223,13 @@ mod commands {
                 }
             }
         )
+    }
+
+    async fn get_hud_names(source: Source) -> Result<Vec<HudName>, ScanPackageError> {
+        let temp_directory = TempDir::new("fetch_package_name").map_err(ScanPackageError::FailedToCreateTempDirectory)?;
+        let package = fetch_package(source.clone(), temp_directory.path()).await?;
+
+        Ok(package.hud_names().cloned().collect())
     }
 
     pub fn save_state(state: State, path: impl Into<PathBuf>) -> Command<Message> {
@@ -224,11 +261,35 @@ mod commands {
             }
         })
     }
+
+    pub fn install_hud(source: Source, name: HudName, huds_directory: PathBuf) -> Command<Message> {
+        let hud_name = name.clone();
+
+        Command::perform(async move {
+            install(source, hud_name, huds_directory).await
+        },move |result| {
+            Message::InstallationFinished(name.clone(), result)
+        })
+    }
+
+    pub fn uninstall_hud(hud_info: &HudInfo, huds_directory: PathBuf) -> Command<Message> {
+        let hud_directory_path = hud_info.install.as_installed().unwrap().0.clone();
+        let hud_name = hud_info.name.clone();
+
+        Command::perform(async move {
+            uninstall(&hud_directory_path, huds_directory).await
+        },move |result| {
+            match result {
+                Ok(()) => { Message::UninstallationFinished(hud_name) }
+                Err(error) => { Message::error(format!("Failed to uninstall HUD '{0}'", hud_name), error) }
+            }
+        })
+    }
 }
 
 mod ui {
     use crate::{AddContext, Message};
-    use hudhub_core::{Registry, Source};
+    use hudhub_core::{HudInfo, Install, Registry, Source};
     use iced::widget::{button, column, row, scrollable, text, text_input};
     use iced::Element;
 
@@ -237,8 +298,17 @@ mod ui {
             button("Add").on_press(Message::ShowAdd),
             scrollable(registry
             .iter()
-            .fold(column![], |c, info| c.push(row![text(&info.name)])))
+            .fold(column![], |c, info| c.push(hud_info_view(info))))
         ]
+        .into()
+    }
+
+    fn hud_info_view(info: &HudInfo) -> Element<Message> {
+        match info.install {
+            Install::None => { row![text(&info.name), button("Install").on_press(Message::Install(info.name.clone()))] }
+            Install::Installed { .. } => { row![text(&info.name), button("Uninstall").on_press(Message::Uninstall(info.name.clone()))] }
+            Install::Failed { .. } => { row![text(&info.name)] }
+        }
         .into()
     }
 
