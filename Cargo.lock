@@ -1342,6 +1342,7 @@ dependencies = [
  "bincode",
  "hudhub-core",
  "iced",
+ "iced_aw",
  "iced_views",
  "platform-dirs",
  "serde",
@@ -1358,7 +1359,6 @@ dependencies = [
  "chrono",
  "enum-as-inner",
  "fs_extra",
- "keyvalues-parser",
  "nom 7.1.3",
  "reqwest",
  "serde",
@@ -1446,6 +1446,16 @@ dependencies = [
  "iced_wgpu",
  "iced_winit",
  "thiserror",
+]
+
+[[package]]
+name = "iced_aw"
+version = "0.4.1"
+source = "git+https://github.com/IohannRabeson/iced_aw?branch=spinner_cleanup#f7ef148c13258d3c769f7611743f02401aad1036"
+dependencies = [
+ "iced_graphics",
+ "iced_native",
+ "iced_style",
 ]
 
 [[package]]

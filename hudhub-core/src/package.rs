@@ -2,7 +2,6 @@
 //! Usually, an installation package contains one file info.vdf, but it can contain
 //! more than one if the package contains multiple HUDs.
 
-use keyvalues_parser::Vdf;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
@@ -37,15 +36,15 @@ impl HudDirectory {
     pub fn new(directory_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
         let path = directory_path.as_ref().to_path_buf();
         assert!(path.is_dir());
-        let name = path.file_name().and_then(|name|name.to_str()).ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
 
-        Ok(Self { path: path.clone(), name: HudName::new(name) })
-    }
-
-    fn parse_name_in_vdf(input: &str) -> Option<HudName> {
-        let vdf = Vdf::parse(input).ok()?;
-
-        Some(HudName(vdf.key.to_string()))
+        Ok(Self {
+            path: path.clone(),
+            name: HudName::new(name),
+        })
     }
 }
 
@@ -76,8 +75,7 @@ impl Package {
     fn scan(root_directory: &Path) -> Result<Vec<HudDirectory>, ScanPackageError> {
         let mut hud_directories = Vec::new();
 
-        for entry in walkdir::WalkDir::new(root_directory)
-        {
+        for entry in walkdir::WalkDir::new(root_directory) {
             if let Ok(entry) = entry {
                 if entry.file_type().is_dir() {
                     if entry.path().join(INFO_VDF_FILE_NAME).exists() {
@@ -132,7 +130,7 @@ mod tests {
     #[test]
     fn test_open_package_one_vdf() {
         let package_dir = TempDir::new("test_open_package_one_vdf").unwrap();
-        create_vdf_file("test",package_dir.path());
+        create_vdf_file("test", package_dir.path());
 
         let package = Package::open(package_dir.path()).unwrap();
 

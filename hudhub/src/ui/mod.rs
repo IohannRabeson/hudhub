@@ -1,7 +1,7 @@
-use crate::{AddContext, AddViewMessage, Message};
+use crate::{AddViewMessage, Message};
 use hudhub_core::{HudInfo, Install, Registry, Source};
-use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, text_input};
-use iced::{Alignment, Element, Length};
+use iced::widget::{button, column, row, scrollable, text};
+use iced::Element;
 
 pub mod add_view;
 

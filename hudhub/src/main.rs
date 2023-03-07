@@ -24,6 +24,7 @@ pub struct AddContext {
     is_form_valid: bool,
     error: Option<String>,
     download_url_text_input: text_input::Id,
+    scanning: bool,
 }
 
 impl Default for AddContext {
@@ -33,6 +34,7 @@ impl Default for AddContext {
             is_form_valid: false,
             error: None,
             download_url_text_input: text_input::Id::unique(),
+            scanning: false,
         }
     }
 }
@@ -41,6 +43,7 @@ impl Default for AddContext {
 pub enum AddViewMessage {
     Show,
     DownloadUrlChanged(String),
+    ScanPackageToAdd(Source),
 }
 
 #[derive(Clone, Debug)]
@@ -49,7 +52,6 @@ pub enum Message {
     AddHuds(Source, Vec<HudName>),
     Install(HudName),
     Uninstall(HudName),
-    ScanPackageToAdd(Source),
     Error(String, String),
     StateSaved,
     StateLoaded(State),
@@ -120,6 +122,13 @@ impl Application {
                     };
                 }
             }
+            AddViewMessage::ScanPackageToAdd(source) => {
+                if let Some(View::Add(context)) = self.views.current_mut() {
+                    context.error = None;
+                    context.scanning = true;
+                    return commands::scan_package(source);
+                }
+            }
         }
 
         Command::none()
@@ -164,17 +173,12 @@ impl IcedApplication for Application {
                     self.views.pop();
                 }
             }
-            Message::ScanPackageToAdd(source) => {
-                if let Some(View::Add(context)) = self.views.current_mut() {
-                    context.error = None;
-                }
-                return commands::scan_package(source);
-            }
             Message::Error(title, error) => {
                 println!("{}: {}", title, error);
                 self.is_loading = false;
                 if let Some(View::Add(context)) = self.views.current_mut() {
                     context.error = Some(error);
+                    context.scanning = false;
                 }
             }
             Message::StateSaved => {}
