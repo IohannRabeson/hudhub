@@ -50,7 +50,7 @@ pub async fn uninstall(hud_directory: &Path, huds_directory: PathBuf) -> Result<
 }
 
 #[cfg(test)]
-mod tests {
+mod slow_tests {
     use super::install;
     use crate::{HudDirectory, HudName, Source};
     use tempdir::TempDir;

@@ -47,8 +47,15 @@ pub enum AddViewMessage {
 }
 
 #[derive(Clone, Debug)]
+pub enum ListViewMessage {
+    HudClicked(HudName),
+    RemoveHud(HudName),
+}
+
+#[derive(Clone, Debug)]
 pub enum Message {
     AddView(AddViewMessage),
+    ListView(ListViewMessage),
     AddHuds(Source, Vec<HudName>),
     Install(HudName),
     Uninstall(HudName),
@@ -71,6 +78,7 @@ impl Message {
 struct Application {
     views: Views<View>,
     state: State,
+    selected_hud: Option<HudName>,
     is_loading: bool,
 }
 
@@ -134,6 +142,28 @@ impl Application {
 
         Command::none()
     }
+
+    fn process_list_view_message(&mut self, message: ListViewMessage) -> Command<Message> {
+        match message {
+            ListViewMessage::HudClicked(hud_name) => {
+                self.selected_hud = Some(hud_name);
+            }
+            ListViewMessage::RemoveHud(hud_name) => {
+                if let Some(selected_hud) = self.selected_hud.as_ref() {
+                    if selected_hud == &hud_name {
+                        self.selected_hud = None;
+                    }
+                }
+
+                if let Some(info) = self.state.registry.remove(&hud_name) {
+                    if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
+                        return commands::uninstall_hud(&info, huds_directory.to_path_buf());
+                    }
+                }
+            }
+        }
+        Command::none()
+    }
 }
 
 impl IcedApplication for Application {
@@ -147,6 +177,7 @@ impl IcedApplication for Application {
             Self {
                 views: Views::new(View::List),
                 state: State::default(),
+                selected_hud: None,
                 is_loading: false,
             },
             Command::batch([
@@ -164,6 +195,9 @@ impl IcedApplication for Application {
         match message {
             Message::AddView(message) => {
                 return self.process_add_view_message(message);
+            }
+            Message::ListView(message) => {
+                return self.process_list_view_message(message);
             }
             Message::AddHuds(source, hud_names) => {
                 for hud_name in hud_names.into_iter() {
@@ -256,7 +290,7 @@ impl IcedApplication for Application {
 
     fn view(&self) -> Element<Self::Message, Renderer<Self::Theme>> {
         match self.views.current().expect("current view") {
-            View::List => ui::list_view::view(&self.state.registry, self.is_loading),
+            View::List => ui::list_view::view(&self.state.registry, self.selected_hud.as_ref(), self.is_loading),
             View::Add(context) => add_view::add_view(&context),
         }
     }

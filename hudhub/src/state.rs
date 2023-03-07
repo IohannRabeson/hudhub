@@ -1,4 +1,4 @@
-use hudhub_core::Registry;
+use hudhub_core::{HudName, Registry};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
