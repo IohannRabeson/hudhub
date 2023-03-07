@@ -7,6 +7,14 @@ pub struct State {
     pub registry: Registry,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum LoadStateError {
+    #[error(transparent)]
+    IoError(#[from]std::io::Error),
+    #[error("Invalid file format")]
+    InvalidFileFormat,
+}
+
 impl State {
     pub async fn save(state: &State, path: &Path) -> Result<(), std::io::Error> {
         if let Some(parent_path) = path.parent() {
@@ -20,12 +28,12 @@ impl State {
         tokio::fs::write(path, encoded).await
     }
 
-    pub async fn load(path: &Path) -> Result<State, std::io::Error> {
+    pub async fn load(path: &Path) -> Result<State, LoadStateError> {
         match path.exists() {
             true => {
                 let encoded = tokio::fs::read(path).await?;
 
-                Ok(bincode::deserialize(&encoded).expect("deserialize state"))
+                Ok(bincode::deserialize(&encoded).map_err(|_| LoadStateError::InvalidFileFormat)?)
             }
             false => Ok(State::default()),
         }

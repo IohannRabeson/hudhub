@@ -1,6 +1,5 @@
 use crate::source::Source;
 use crate::{fetch_package, FetchError, HudDirectory, HudName, Install, OpenHudDirectoryError};
-use chrono::Utc;
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
 

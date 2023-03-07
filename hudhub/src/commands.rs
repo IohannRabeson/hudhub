@@ -1,6 +1,6 @@
-use crate::state::State;
+use crate::state::{LoadStateError, State};
 use crate::Message;
-use hudhub_core::{fetch_package, install, uninstall, FetchError, HudInfo, HudName, Source, Registry, HudDirectory};
+use hudhub_core::{fetch_package, install, uninstall, FetchError, HudInfo, HudName, Source, HudDirectory};
 use iced::Command;
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
@@ -84,7 +84,7 @@ pub fn load_state(path: impl Into<PathBuf>) -> Command<Message> {
 
     Command::perform(async move {
         State::load(&path).await
-    }, |result: Result<State, std::io::Error>| match result {
+    }, |result: Result<State, LoadStateError>| match result {
         Ok(state) => Message::StateLoaded(state),
         Err(error) => Message::error("Failed to load application state", error),
     })
