@@ -115,7 +115,7 @@ pub enum ScanPackageError {
 }
 
 #[cfg(test)]
-mod tests {
+mod slow_tests {
     use crate::package::{HudDirectory, HudName, Package};
     use std::path::Path;
     use tempdir::TempDir;

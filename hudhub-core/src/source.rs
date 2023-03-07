@@ -188,9 +188,7 @@ async fn download_url(url: &str, directory: impl AsRef<Path>) -> Result<PathBuf,
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_file_name, fetch_package, Package};
-    use crate::{HudName, Source};
-    use tempdir::TempDir;
+    use super::extract_file_name;
     use test_case::test_case;
 
     #[test_case(
@@ -203,6 +201,13 @@ mod tests {
     fn test_extract_file_name(input: &str, expected: Option<String>) {
         assert_eq!(expected, extract_file_name(input))
     }
+}
+
+#[cfg(test)]
+mod slow_tests {
+    use super::{fetch_package, Package};
+    use crate::{HudName, Source};
+    use tempdir::TempDir;
 
     #[tokio::test]
     async fn test_fetch_zip() {

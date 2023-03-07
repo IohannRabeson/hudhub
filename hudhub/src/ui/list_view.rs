@@ -1,41 +1,117 @@
-use crate::{AddViewMessage, Message};
-use hudhub_core::{HudInfo, Install, Registry, Source};
-use iced::widget::{button, column, row, scrollable, text};
-use iced::Element;
+use crate::ui::{color, DEFAULT_SPACING};
+use crate::{AddViewMessage, ListViewMessage, Message};
+use hudhub_core::{HudInfo, HudName, Install, Registry, Source};
+use iced::widget::{button, column, container, row, scrollable, text, Container, Scrollable, vertical_space};
+use iced::{theme, Background, Color, Element, Length, Theme, Alignment};
 
-pub fn view(registry: &Registry, is_loading: bool) -> Element<Message> {
-    column![
-        button("Add").on_press(Message::AddView(AddViewMessage::Show)),
-        scrollable(
-            registry
-                .iter()
-                .fold(column![], |c, info| c.push(hud_info_view(info, is_loading)))
-        )
+pub fn view<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_loading: bool) -> Element<'a, Message> {
+    row![
+        hud_list(registry, selected_hud).width(Length::FillPortion(4)),
+        action_list(registry, selected_hud, is_loading).width(Length::Fill)
     ]
+    .spacing(DEFAULT_SPACING)
+    .padding(DEFAULT_SPACING)
     .into()
 }
 
-fn hud_info_view(info: &HudInfo, is_loading: bool) -> Element<Message> {
-    let mut install_button = button("Install");
-    let mut uninstall_button = button("Uninstall");
+fn action_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_loading: bool) -> Container<'a, Message> {
+    let mut content = column![];
 
-    if !is_loading {
-        if info.source != Source::None {
-            install_button = install_button.on_press(Message::Install(info.name.clone()));
+    if let Some(selected_hud) = selected_hud {
+        match registry.get(selected_hud) {
+            None => {}
+            Some(info) => match info.install {
+                Install::None => {
+                    content = content.push(button("Install").on_press(Message::Install(info.name.clone())));
+                }
+                Install::Installed { .. } => {
+                    content = content.push(button("Uninstall").on_press(Message::Uninstall(info.name.clone())));
+                }
+                Install::Failed { .. } => {
+                    content = content.push(button("Install").on_press(Message::Install(info.name.clone())));
+                }
+            },
         }
-        uninstall_button = uninstall_button.on_press(Message::Uninstall(info.name.clone()));
+
+        content =
+            content.push(button("Remove").on_press(Message::ListView(ListViewMessage::RemoveHud(selected_hud.clone()))));
     }
 
-    match info.install {
-        Install::None => {
-            row![text(&info.name), install_button]
-        }
-        Install::Installed { .. } => {
-            row![text(&info.name), uninstall_button]
-        }
-        Install::Failed { .. } => {
-            row![text(&info.name)]
+    content = content.push(vertical_space(Length::Fill));
+    content = content.push(button(text("Add HUD").size(36)).padding(16).on_press(Message::AddView(AddViewMessage::Show)).style(theme::Button::Positive));
+
+    container(content.spacing(DEFAULT_SPACING).align_items(Alignment::Center).width(Length::Fill)).width(Length::Fill)
+}
+
+fn hud_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>) -> Container<'a, Message> {
+    container(scrollable(
+        registry.iter().fold(column![].spacing(DEFAULT_SPACING), |c, info| {
+            c.push(hud_info_view(info, selected_hud == Some(&info.name)))
+        }),
+    ))
+}
+
+struct UnselectedInfoView;
+struct SelectedInfoView;
+
+impl button::StyleSheet for SelectedInfoView {
+    type Style = Theme;
+
+    fn active(&self, style: &Self::Style) -> button::Appearance {
+        button::Appearance {
+            shadow_offset: Default::default(),
+            background: Some(Background::Color(style.palette().primary)),
+            border_radius: 0.0,
+            border_width: 0.0,
+            border_color: Color::TRANSPARENT,
+            text_color: style.palette().text,
         }
     }
-    .into()
+
+    fn hovered(&self, style: &Self::Style) -> button::Appearance {
+        let mut appearance = self.active(style);
+
+        appearance.background = Some(Background::Color(color::brighter(style.palette().primary)));
+
+        appearance
+    }
+}
+
+impl button::StyleSheet for UnselectedInfoView {
+    type Style = Theme;
+
+    fn active(&self, style: &Self::Style) -> button::Appearance {
+        button::Appearance {
+            shadow_offset: Default::default(),
+            background: Some(Background::Color(color::brighter(style.palette().background))),
+            border_radius: 0.0,
+            border_width: 0.0,
+            border_color: Color::TRANSPARENT,
+            text_color: style.palette().text,
+        }
+    }
+
+    fn hovered(&self, style: &Self::Style) -> button::Appearance {
+        let mut appearance = self.active(style);
+
+        appearance.background = Some(Background::Color(color::brighter_by(style.palette().background, 0.2)));
+
+        appearance
+    }
+}
+
+fn hud_info_view(info: &HudInfo, is_selected: bool) -> Element<Message> {
+    let mut button = button(row![text(&info.name)])
+        .on_press(Message::ListView(ListViewMessage::HudClicked(info.name.clone())))
+        .width(Length::Fill)
+        .style(theme::Button::Custom(match is_selected {
+            true => Box::new(SelectedInfoView {}),
+            false => Box::new(UnselectedInfoView {}),
+        }));
+
+    if !is_selected {
+        button = button.style(theme::Button::Custom(Box::new(UnselectedInfoView {})));
+    }
+
+    button.into()
 }
