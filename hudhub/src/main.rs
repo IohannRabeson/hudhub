@@ -256,7 +256,7 @@ impl IcedApplication for Application {
 
     fn view(&self) -> Element<Self::Message, Renderer<Self::Theme>> {
         match self.views.current().expect("current view") {
-            View::List => ui::list_view(&self.state.registry, self.is_loading),
+            View::List => ui::list_view::view(&self.state.registry, self.is_loading),
             View::Add(context) => add_view::add_view(&context),
         }
     }
