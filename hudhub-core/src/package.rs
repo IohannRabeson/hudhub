@@ -37,7 +37,9 @@ impl HudDirectory {
     pub fn scan(path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
         let path = path.as_ref().to_path_buf();
         let info_vdf_file_path = std::fs::read_to_string(path.join(INFO_VDF_FILE_NAME))
-            .map_err(|e| OpenHudDirectoryError::FailedToReadVdfFile(e))?;
+            .map_err(|e| {
+                OpenHudDirectoryError::FailedToReadVdfFile(path.clone(), e)
+            })?;
         let name = Self::parse_name_in_vdf(&info_vdf_file_path).ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
 
         Ok(Self { path, name })
@@ -77,26 +79,13 @@ impl Package {
     fn scan(root_directory: &Path) -> Result<Vec<HudDirectory>, ScanPackageError> {
         let mut hud_directories = Vec::new();
 
-        // Scan root directory
-        {
-            let info_vdf_file_path = root_directory.join(INFO_VDF_FILE_NAME);
-
-            if info_vdf_file_path.exists() {
-                hud_directories.push(HudDirectory::scan(root_directory)?);
-            }
-        }
-
-        // Scan sub directories
-        for entry in std::fs::read_dir(root_directory)
-            .map_err(|e| ScanPackageError::CantReadDirectory(root_directory.to_path_buf(), e))?
+        for entry in walkdir::WalkDir::new(root_directory)
         {
             if let Ok(entry) = entry {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_dir() {
-                        let info_vdf_file_path = entry.path().join(INFO_VDF_FILE_NAME);
-
-                        if info_vdf_file_path.exists() {
-                            hud_directories.push(HudDirectory::scan(entry.path())?);
+                if entry.file_type().is_dir() {
+                    if entry.path().join(INFO_VDF_FILE_NAME).exists() {
+                        if let Ok(directory) = HudDirectory::scan(entry.path()) {
+                            hud_directories.push(directory);
                         }
                     }
                 }
@@ -112,8 +101,8 @@ pub enum OpenHudDirectoryError {
     #[error("Failed to find HUD's name in info.vdf")]
     FailedToFindHudName,
 
-    #[error("Failed to read .vdf file")]
-    FailedToReadVdfFile(std::io::Error),
+    #[error("Failed to read .vdf file: {1}")]
+    FailedToReadVdfFile(PathBuf, std::io::Error),
 }
 
 #[derive(thiserror::Error, Debug)]

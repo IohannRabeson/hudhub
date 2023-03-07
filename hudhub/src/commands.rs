@@ -1,6 +1,6 @@
 use crate::state::{LoadStateError, State};
 use crate::Message;
-use hudhub_core::{fetch_package, install, uninstall, FetchError, HudInfo, HudName, Source, HudDirectory};
+use hudhub_core::{fetch_package, install, uninstall, FetchError, HudDirectory, HudInfo, HudName, Source};
 use iced::Command;
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
@@ -66,14 +66,11 @@ fn search_hud_install(huds_directory: &Path) -> Vec<HudDirectory> {
 
 pub fn scan_huds_directory(huds_directory: Option<PathBuf>) -> Command<Message> {
     match huds_directory {
-        Some(huds_directory) => {
-            Command::perform(async move {
-                search_hud_install(&huds_directory)
-            }, Message::FoundInstalledHuds)
-        }
-        None => {
-            Command::none()
-        }
+        Some(huds_directory) => Command::perform(
+            async move { search_hud_install(&huds_directory) },
+            Message::FoundInstalledHuds,
+        ),
+        None => Command::none(),
     }
 }
 
@@ -82,12 +79,13 @@ pub fn load_state(path: impl Into<PathBuf>) -> Command<Message> {
 
     println!("Load state: {}", path.display());
 
-    Command::perform(async move {
-        State::load(&path).await
-    }, |result: Result<State, LoadStateError>| match result {
-        Ok(state) => Message::StateLoaded(state),
-        Err(error) => Message::error("Failed to load application state", error),
-    })
+    Command::perform(
+        async move { State::load(&path).await },
+        |result: Result<State, LoadStateError>| match result {
+            Ok(state) => Message::StateLoaded(state),
+            Err(error) => Message::error("Failed to load application state", error),
+        },
+    )
 }
 
 pub fn install_hud(source: Source, name: HudName, huds_directory: PathBuf) -> Command<Message> {

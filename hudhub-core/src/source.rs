@@ -23,7 +23,7 @@ pub enum FetchError {
     #[error(transparent)]
     GetFailed(#[from] reqwest::Error),
 
-    #[error("Invalid URL '{0}'")]
+    #[error("This URL is not a download URL")]
     InvalidUrl(String),
 
     #[error(transparent)]

@@ -10,7 +10,7 @@ pub struct State {
 #[derive(thiserror::Error, Debug)]
 pub enum LoadStateError {
     #[error(transparent)]
-    IoError(#[from]std::io::Error),
+    IoError(#[from] std::io::Error),
     #[error("Invalid file format")]
     InvalidFileFormat,
 }
