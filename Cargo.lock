@@ -1451,7 +1451,7 @@ dependencies = [
 [[package]]
 name = "iced_aw"
 version = "0.4.1"
-source = "git+https://github.com/IohannRabeson/iced_aw?branch=spinner_cleanup#f7ef148c13258d3c769f7611743f02401aad1036"
+source = "git+https://github.com/iced-rs/iced_aw#8fc1eed1aa418edaf99425a965bc21a8905ed119"
 dependencies = [
  "iced_graphics",
  "iced_native",
