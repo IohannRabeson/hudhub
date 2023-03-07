@@ -3402,7 +3402,7 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 [[package]]
 name = "unrar"
 version = "0.4.4"
-source = "git+https://github.com/muja/unrar.rs#0bf0d59353c89c02be52855dbf0af515f24568d1"
+source = "git+https://github.com/IohannRabeson/unrar.rs?branch=macos_fix#80b5def51f91320bd936f9fbeb4acfa7cebd05e0"
 dependencies = [
  "bitflags",
  "enum_primitive",
@@ -3416,7 +3416,7 @@ dependencies = [
 [[package]]
 name = "unrar_sys"
 version = "0.2.1"
-source = "git+https://github.com/muja/unrar.rs#0bf0d59353c89c02be52855dbf0af515f24568d1"
+source = "git+https://github.com/IohannRabeson/unrar.rs?branch=macos_fix#80b5def51f91320bd936f9fbeb4acfa7cebd05e0"
 dependencies = [
  "cc",
  "libc",
