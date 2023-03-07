@@ -59,6 +59,7 @@ pub enum Message {
     UninstallationFinished(HudName),
     FoundInstalledHuds(Vec<HudDirectory>),
     Quit,
+    Back,
 }
 
 impl Message {
@@ -244,6 +245,9 @@ impl IcedApplication for Application {
                             .set_install(&hud_directory.name, Install::installed_now(&hud_directory.path));
                     }
                 }
+            }
+            Message::Back => {
+                self.views.pop();
             }
         }
 

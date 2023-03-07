@@ -3,15 +3,23 @@ use crate::{AddContext, AddViewMessage, Message};
 use hudhub_core::Source;
 use iced::widget::{button, column, container, horizontal_space, row, text, text_input};
 use iced::{Alignment, Element, Length};
+use iced_aw::floating_element::Anchor;
+use iced_aw::native::FloatingElement;
 use iced_aw::Spinner;
 
 pub fn add_view(context: &AddContext) -> Element<Message> {
     match context.scanning {
-        true => container(Spinner::new().circle_radius(4.0).width(Length::Fixed(64.0)).height(Length::Fixed(64.0)))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x().center_y()
-            .into(),
+        true => container(
+            Spinner::new()
+                .circle_radius(4.0)
+                .width(Length::Fixed(64.0))
+                .height(Length::Fixed(64.0)),
+        )
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center_x()
+        .center_y()
+        .into(),
         false => {
             let mut add_button = button("Add HUB!");
 
@@ -39,7 +47,11 @@ pub fn add_view(context: &AddContext) -> Element<Message> {
 
             main_column = main_column.push(add_button);
 
-            container(main_column).height(Length::Fill).center_y().into()
+            let content = container(main_column).height(Length::Fill).center_y();
+
+            FloatingElement::new(content, || button("X").on_press(Message::Back).into())
+                .anchor(Anchor::NorthEast)
+                .into()
         }
     }
 }
