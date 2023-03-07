@@ -52,7 +52,7 @@ fn search_hud_install(huds_directory: &Path) -> Vec<HudDirectory> {
             if let Ok(entry) = entry {
                 if let Ok(file_type) = entry.file_type() {
                     if file_type.is_dir() {
-                        if let Ok(directory) = HudDirectory::scan(entry.path()) {
+                        if let Ok(directory) = HudDirectory::new(entry.path()) {
                             directories.push(directory);
                         }
                     }

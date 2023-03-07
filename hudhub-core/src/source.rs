@@ -48,15 +48,15 @@ pub async fn fetch_package(source: Source, directory: impl AsRef<Path>) -> Resul
 mod archives {
     #[derive(thiserror::Error, Debug)]
     pub enum ArchiveError {
-        #[error("Unsupported archive type: '{0}'")]
+        #[error("Unsupported archive type.")]
         UnsupportedArchiveType(PathBuf),
-        #[error("Reading archive '{0}' failed: '{1}'")]
+        #[error("Reading archive failed: '{1}'")]
         ReadFailed(PathBuf, Box<dyn std::error::Error>),
-        #[error("Creating directory '{0}' failed: '{1}'")]
+        #[error("Creating directory failed: '{1}'")]
         CreateDirectoryFailed(PathBuf, std::io::Error),
-        #[error("Writing file '{0}' failed: '{1}'")]
+        #[error("Failed to write file: '{1}'")]
         CreateFileFailed(PathBuf, std::io::Error),
-        #[error("Copying file '{0}' failed: '{1}'")]
+        #[error("Failed to copy file: '{1}'")]
         CopyFileFailed(PathBuf, std::io::Error),
     }
 
@@ -211,7 +211,7 @@ mod tests {
         let package = fetch_package(source, directory.path()).await.unwrap();
 
         assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("ahud"));
+        assert_eq!(package.hud_directories[0].name, HudName::new("ahud-master"));
     }
 
     #[tokio::test]
@@ -221,7 +221,7 @@ mod tests {
         let package = fetch_package(source, directory.path()).await.unwrap();
 
         assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("3hud"));
+        assert_eq!(package.hud_directories[0].name, HudName::new("3HUD"));
     }
 
     #[tokio::test]
@@ -231,7 +231,7 @@ mod tests {
         let package = fetch_package(source, directory.path()).await.unwrap();
 
         assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("HL Hud"));
+        assert_eq!(package.hud_directories[0].name, HudName::new("Black-Mesa-HUD"));
     }
 
     #[tokio::test]
@@ -241,7 +241,7 @@ mod tests {
         let package = fetch_package(source, directory.path()).await.unwrap();
 
         assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("7hud"));
+        assert_eq!(package.hud_directories[0].name, HudName::new("7hud-5.11"));
     }
 
     #[tokio::test]
@@ -251,6 +251,6 @@ mod tests {
         let package = fetch_package(source, directory.path()).await.unwrap();
 
         assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("7hud"));
+        assert_eq!(package.hud_directories[0].name, HudName::new("7hud-5.11"));
     }
 }

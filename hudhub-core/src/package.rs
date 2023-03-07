@@ -34,15 +34,12 @@ pub struct HudDirectory {
 }
 
 impl HudDirectory {
-    pub fn scan(path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
-        let path = path.as_ref().to_path_buf();
-        let info_vdf_file_path = std::fs::read_to_string(path.join(INFO_VDF_FILE_NAME))
-            .map_err(|e| {
-                OpenHudDirectoryError::FailedToReadVdfFile(path.clone(), e)
-            })?;
-        let name = Self::parse_name_in_vdf(&info_vdf_file_path).ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
+    pub fn new(directory_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
+        let path = directory_path.as_ref().to_path_buf();
+        assert!(path.is_dir());
+        let name = path.file_name().and_then(|name|name.to_str()).ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
 
-        Ok(Self { path, name })
+        Ok(Self { path: path.clone(), name: HudName::new(name) })
     }
 
     fn parse_name_in_vdf(input: &str) -> Option<HudName> {
@@ -84,7 +81,7 @@ impl Package {
             if let Ok(entry) = entry {
                 if entry.file_type().is_dir() {
                     if entry.path().join(INFO_VDF_FILE_NAME).exists() {
-                        if let Ok(directory) = HudDirectory::scan(entry.path()) {
+                        if let Ok(directory) = HudDirectory::new(entry.path()) {
                             hud_directories.push(directory);
                         }
                     }
@@ -135,14 +132,16 @@ mod tests {
     #[test]
     fn test_open_package_one_vdf() {
         let package_dir = TempDir::new("test_open_package_one_vdf").unwrap();
-        create_vdf_file("test", package_dir.path());
+        create_vdf_file("test",package_dir.path());
 
         let package = Package::open(package_dir.path()).unwrap();
 
         assert_eq!(1, package.hud_directories.len());
-        assert_eq!(HudName("test".into()), package.hud_directories[0].name);
     }
 
+    /// Notice the name of the HUD is specified by the name of the directory
+    /// that contains the file info.vdf. The reason I do not use the file info.vdf is
+    /// because real HUDs often do not care about this file and I noticed error is several huds.
     #[test]
     fn test_open_package_multiple_vdf() {
         let package_dir = TempDir::new("test_open_package_one_vdf").unwrap();
@@ -156,7 +155,7 @@ mod tests {
         let package = Package::open(package_dir.path()).unwrap();
 
         assert_eq!(2, package.hud_directories.len());
-        assert_eq!(HudName("test0".into()), package.hud_directories[0].name);
-        assert_eq!(HudName("test1".into()), package.hud_directories[1].name);
+        assert_eq!(HudName("d0".into()), package.hud_directories[0].name);
+        assert_eq!(HudName("d1".into()), package.hud_directories[1].name);
     }
 }
