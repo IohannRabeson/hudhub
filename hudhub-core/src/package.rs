@@ -2,7 +2,6 @@
 //! Usually, an installation package contains one file info.vdf, but it can contain
 //! more than one if the package contains multiple HUDs.
 
-use keyvalues_parser::Vdf;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
@@ -34,19 +33,18 @@ pub struct HudDirectory {
 }
 
 impl HudDirectory {
-    pub fn scan(path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
-        let path = path.as_ref().to_path_buf();
-        let info_vdf_file_path = std::fs::read_to_string(path.join(INFO_VDF_FILE_NAME))
-            .map_err(|e| OpenHudDirectoryError::FailedToReadVdfFile(e))?;
-        let name = Self::parse_name_in_vdf(&info_vdf_file_path).ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
+    pub fn new(directory_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
+        let path = directory_path.as_ref().to_path_buf();
+        assert!(path.is_dir());
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
 
-        Ok(Self { path, name })
-    }
-
-    fn parse_name_in_vdf(input: &str) -> Option<HudName> {
-        let vdf = Vdf::parse(input).ok()?;
-
-        Some(HudName(vdf.key.to_string()))
+        Ok(Self {
+            path: path.clone(),
+            name: HudName::new(name),
+        })
     }
 }
 
@@ -77,26 +75,12 @@ impl Package {
     fn scan(root_directory: &Path) -> Result<Vec<HudDirectory>, ScanPackageError> {
         let mut hud_directories = Vec::new();
 
-        // Scan root directory
-        {
-            let info_vdf_file_path = root_directory.join(INFO_VDF_FILE_NAME);
-
-            if info_vdf_file_path.exists() {
-                hud_directories.push(HudDirectory::scan(root_directory)?);
-            }
-        }
-
-        // Scan sub directories
-        for entry in std::fs::read_dir(root_directory)
-            .map_err(|e| ScanPackageError::CantReadDirectory(root_directory.to_path_buf(), e))?
-        {
+        for entry in walkdir::WalkDir::new(root_directory) {
             if let Ok(entry) = entry {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_dir() {
-                        let info_vdf_file_path = entry.path().join(INFO_VDF_FILE_NAME);
-
-                        if info_vdf_file_path.exists() {
-                            hud_directories.push(HudDirectory::scan(entry.path())?);
+                if entry.file_type().is_dir() {
+                    if entry.path().join(INFO_VDF_FILE_NAME).exists() {
+                        if let Ok(directory) = HudDirectory::new(entry.path()) {
+                            hud_directories.push(directory);
                         }
                     }
                 }
@@ -112,8 +96,8 @@ pub enum OpenHudDirectoryError {
     #[error("Failed to find HUD's name in info.vdf")]
     FailedToFindHudName,
 
-    #[error("Failed to read .vdf file")]
-    FailedToReadVdfFile(std::io::Error),
+    #[error("Failed to read .vdf file: {1}")]
+    FailedToReadVdfFile(PathBuf, std::io::Error),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -151,9 +135,11 @@ mod tests {
         let package = Package::open(package_dir.path()).unwrap();
 
         assert_eq!(1, package.hud_directories.len());
-        assert_eq!(HudName("test".into()), package.hud_directories[0].name);
     }
 
+    /// Notice the name of the HUD is specified by the name of the directory
+    /// that contains the file info.vdf. The reason I do not use the file info.vdf is
+    /// because real HUDs often do not care about this file and I noticed error is several huds.
     #[test]
     fn test_open_package_multiple_vdf() {
         let package_dir = TempDir::new("test_open_package_one_vdf").unwrap();
@@ -167,7 +153,7 @@ mod tests {
         let package = Package::open(package_dir.path()).unwrap();
 
         assert_eq!(2, package.hud_directories.len());
-        assert_eq!(HudName("test0".into()), package.hud_directories[0].name);
-        assert_eq!(HudName("test1".into()), package.hud_directories[1].name);
+        assert_eq!(HudName("d0".into()), package.hud_directories[0].name);
+        assert_eq!(HudName("d1".into()), package.hud_directories[1].name);
     }
 }

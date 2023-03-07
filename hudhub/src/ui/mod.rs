@@ -1,11 +1,15 @@
-use crate::{AddContext, Message};
+use crate::{AddViewMessage, Message};
 use hudhub_core::{HudInfo, Install, Registry, Source};
-use iced::widget::{button, column, row, scrollable, text, text_input};
+use iced::widget::{button, column, row, scrollable, text};
 use iced::Element;
+
+pub mod add_view;
+
+const DEFAULT_SPACING: u16 = 8;
 
 pub fn list_view(registry: &Registry, is_loading: bool) -> Element<Message> {
     column![
-        button("Add").on_press(Message::ShowAdd),
+        button("Add").on_press(Message::AddView(AddViewMessage::Show)),
         scrollable(
             registry
                 .iter()
@@ -38,17 +42,4 @@ fn hud_info_view(info: &HudInfo, is_loading: bool) -> Element<Message> {
         }
     }
     .into()
-}
-
-pub fn add_view(context: &AddContext) -> Element<Message> {
-    let mut main_column = column![row![
-        text_input("Enter download url", &context.download_url, Message::DownloadUrlChanged),
-        button("Add").on_press(Message::ScanPackageToAdd(Source::DownloadUrl(context.download_url.clone()))),
-    ]];
-
-    if let Some(error) = context.error.as_ref() {
-        main_column = main_column.push(text(error))
-    }
-
-    main_column.into()
 }

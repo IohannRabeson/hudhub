@@ -1,5 +1,6 @@
 use crate::commands::save_state;
-use hudhub_core::{HudDirectory, HudName, Install, Source};
+use hudhub_core::{HudDirectory, HudName, Install, Source, Url};
+use iced::widget::text_input;
 use iced::{
     event, subscription, window, Application as IcedApplication, Command, Element, Renderer, Settings, Subscription, Theme,
 };
@@ -7,9 +8,10 @@ use iced_views::Views;
 use platform_dirs::AppDirs;
 use state::State;
 use std::path::PathBuf;
+use ui::add_view;
 
-mod state;
 mod commands;
+mod state;
 mod ui;
 
 enum View {
@@ -17,20 +19,39 @@ enum View {
     Add(AddContext),
 }
 
-#[derive(Default)]
 pub struct AddContext {
     download_url: String,
+    is_form_valid: bool,
     error: Option<String>,
+    download_url_text_input: text_input::Id,
+    scanning: bool,
+}
+
+impl Default for AddContext {
+    fn default() -> Self {
+        Self {
+            download_url: String::new(),
+            is_form_valid: false,
+            error: None,
+            download_url_text_input: text_input::Id::unique(),
+            scanning: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum AddViewMessage {
+    Show,
+    DownloadUrlChanged(String),
+    ScanPackageToAdd(Source),
 }
 
 #[derive(Clone, Debug)]
 pub enum Message {
-    ShowAdd,
-    DownloadUrlChanged(String),
+    AddView(AddViewMessage),
     AddHuds(Source, Vec<HudName>),
     Install(HudName),
     Uninstall(HudName),
-    ScanPackageToAdd(Source),
     Error(String, String),
     StateSaved,
     StateLoaded(State),
@@ -38,6 +59,7 @@ pub enum Message {
     UninstallationFinished(HudName),
     FoundInstalledHuds(Vec<HudDirectory>),
     Quit,
+    Back,
 }
 
 impl Message {
@@ -73,6 +95,45 @@ impl Application {
     fn get_team_fortress_huds_directory() -> Option<PathBuf> {
         Self::get_team_fortress_directory().map(|directory| directory.join("tf").join("custom"))
     }
+
+    fn process_add_view_message(&mut self, message: AddViewMessage) -> Command<Message> {
+        match message {
+            AddViewMessage::Show => {
+                let context = AddContext::default();
+                let focus_command = text_input::focus(context.download_url_text_input.clone());
+
+                self.views.push(View::Add(context));
+
+                return focus_command;
+            }
+            AddViewMessage::DownloadUrlChanged(url) => {
+                if let Some(View::Add(context)) = self.views.current_mut() {
+                    context.download_url = url.clone();
+                    context.is_form_valid = if !url.is_empty() {
+                        match Url::parse(&url) {
+                            Ok(_) => true,
+                            Err(error) => {
+                                context.error = Some(format!("Invalid URL: {}", error));
+                                false
+                            }
+                        }
+                    } else {
+                        context.error = None;
+                        false
+                    };
+                }
+            }
+            AddViewMessage::ScanPackageToAdd(source) => {
+                if let Some(View::Add(context)) = self.views.current_mut() {
+                    context.error = None;
+                    context.scanning = true;
+                    return commands::scan_package(source);
+                }
+            }
+        }
+
+        Command::none()
+    }
 }
 
 impl IcedApplication for Application {
@@ -88,8 +149,10 @@ impl IcedApplication for Application {
                 state: State::default(),
                 is_loading: false,
             },
-            Command::batch([commands::load_state(Self::get_application_state_file_path()),
-                           commands::scan_huds_directory(Self::get_team_fortress_huds_directory())]),
+            Command::batch([
+                commands::load_state(Self::get_application_state_file_path()),
+                commands::scan_huds_directory(Self::get_team_fortress_huds_directory()),
+            ]),
         )
     }
 
@@ -99,11 +162,8 @@ impl IcedApplication for Application {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            Message::ShowAdd => self.views.push(View::Add(AddContext::default())),
-            Message::DownloadUrlChanged(url) => {
-                if let Some(View::Add(context)) = self.views.current_mut() {
-                    context.download_url = url;
-                }
+            Message::AddView(message) => {
+                return self.process_add_view_message(message);
             }
             Message::AddHuds(source, hud_names) => {
                 for hud_name in hud_names.into_iter() {
@@ -114,17 +174,12 @@ impl IcedApplication for Application {
                     self.views.pop();
                 }
             }
-            Message::ScanPackageToAdd(source) => {
-                if let Some(View::Add(context)) = self.views.current_mut() {
-                    context.error = None;
-                }
-                return commands::scan_package(source);
-            }
             Message::Error(title, error) => {
                 println!("{}: {}", title, error);
                 self.is_loading = false;
                 if let Some(View::Add(context)) = self.views.current_mut() {
                     context.error = Some(error);
+                    context.scanning = false;
                 }
             }
             Message::StateSaved => {}
@@ -178,14 +233,21 @@ impl IcedApplication for Application {
                     if let Some(info) = self.state.registry.get(&hud_directory.name) {
                         if let Install::Installed { path, .. } = &info.install {
                             if path != &hud_directory.path {
-                                self.state.registry.set_install(&hud_directory.name, Install::installed_now(path));
+                                self.state
+                                    .registry
+                                    .set_install(&hud_directory.name, Install::installed_now(path));
                             }
                         }
                     } else {
                         self.state.registry.add(hud_directory.name.clone(), Source::None);
-                        self.state.registry.set_install(&hud_directory.name, Install::installed_now(&hud_directory.path));
+                        self.state
+                            .registry
+                            .set_install(&hud_directory.name, Install::installed_now(&hud_directory.path));
                     }
                 }
+            }
+            Message::Back => {
+                self.views.pop();
             }
         }
 
@@ -195,7 +257,7 @@ impl IcedApplication for Application {
     fn view(&self) -> Element<Self::Message, Renderer<Self::Theme>> {
         match self.views.current().expect("current view") {
             View::List => ui::list_view(&self.state.registry, self.is_loading),
-            View::Add(context) => ui::add_view(&context),
+            View::Add(context) => add_view::add_view(&context),
         }
     }
 

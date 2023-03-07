@@ -10,6 +10,7 @@ bincode = "1.3.3"
 hudhub-core = { path = "../hudhub-core" }
 iced = { version = "0.8.0", features = ["tokio"] }
 iced_views = "0.1.0"
+iced_aw = { git = "https://github.com/iced-rs/iced_aw", default-features = false, features = ["spinner", "floating_element"] }
 platform-dirs = "0.3.0"
 serde = { version = "1.0.152", features = ["derive"] }
 steamlocate = "1.1.1"
