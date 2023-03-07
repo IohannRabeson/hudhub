@@ -36,8 +36,7 @@ pub fn add_view(context: &AddContext) -> Element<Message> {
                 ))
                 .id(context.download_url_text_input.clone())
                 .width(Length::FillPortion(3))
-                .on_submit(scan_package_message.clone())
-                ,
+                .on_submit(scan_package_message.clone()),
                 horizontal_space(Length::Fill)
             ];
 
