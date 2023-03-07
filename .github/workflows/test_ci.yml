@@ -13,6 +13,8 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
+      - name: Is clang there?
+        run: clang --version
       - uses: actions/checkout@v3
         with:
           submodules: recursive
