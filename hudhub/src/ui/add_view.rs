@@ -22,11 +22,11 @@ pub fn add_view(context: &AddContext) -> Element<Message> {
         .into(),
         false => {
             let mut add_button = button("Add HUB!");
-
+            let scan_package_message = Message::AddView(AddViewMessage::ScanPackageToAdd(Source::DownloadUrl(
+                context.download_url.clone(),
+            )));
             if context.is_form_valid {
-                add_button = add_button.on_press(Message::AddView(AddViewMessage::ScanPackageToAdd(Source::DownloadUrl(
-                    context.download_url.clone(),
-                ))));
+                add_button = add_button.on_press(scan_package_message.clone());
             }
 
             let input = row![
@@ -35,7 +35,9 @@ pub fn add_view(context: &AddContext) -> Element<Message> {
                     AddViewMessage::DownloadUrlChanged(text)
                 ))
                 .id(context.download_url_text_input.clone())
-                .width(Length::FillPortion(3)),
+                .width(Length::FillPortion(3))
+                .on_submit(scan_package_message.clone())
+                ,
                 horizontal_space(Length::Fill)
             ];
 
