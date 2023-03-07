@@ -24,7 +24,7 @@ impl Display for HudName {
     }
 }
 /// The root directory of a HUD.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HudDirectory {
     /// The path to the directory, relative to the package root directory.
     pub path: PathBuf,

@@ -20,13 +20,8 @@ pub enum InstallError {
 
 pub async fn install(source: Source, name: HudName, huds_directory: PathBuf) -> Install {
     match install_impl(source, name, huds_directory).await {
-        Ok(hud_directory) => Install::Installed {
-            path: hud_directory.path.clone(),
-            when: Utc::now(),
-        },
-        Err(error) => Install::Failed {
-            error: error.to_string(),
-        },
+        Ok(hud_directory) => Install::installed_now(&hud_directory.path),
+        Err(error) => Install::failed(error),
     }
 }
 

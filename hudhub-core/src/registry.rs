@@ -21,6 +21,10 @@ impl Registry {
     }
 
     pub fn add(&mut self, name: HudName, source: Source) {
+        if self.info.contains_key(&name) {
+            return
+        }
+
         self.info.insert(
             name.clone(),
             HudInfo {
@@ -64,4 +68,14 @@ pub enum Install {
     None,
     Installed { path: PathBuf, when: DateTime<Utc> },
     Failed { error: String },
+}
+
+impl Install {
+    pub fn installed_now(path: impl Into<PathBuf>) -> Self {
+        Self::Installed { path: path.into(), when: Utc::now() }
+    }
+
+    pub fn failed(error: impl ToString) -> Self {
+        Self::Failed { error: error.to_string() }
+    }
 }
