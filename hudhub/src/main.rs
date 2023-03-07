@@ -1,10 +1,12 @@
-use std::path::PathBuf;
-use iced::{Application as IcedApplication, Command, Element, event, Renderer, Settings, subscription, Subscription, Theme, window};
-use iced_views::Views;
-use hudhub_core::{HudName, Install, Source};
-use state::State;
 use crate::commands::save_state;
+use hudhub_core::{HudName, Install, Source};
+use iced::{
+    event, subscription, window, Application as IcedApplication, Command, Element, Renderer, Settings, Subscription, Theme,
+};
+use iced_views::Views;
 use platform_dirs::AppDirs;
+use state::State;
+use std::path::PathBuf;
 
 mod state;
 
@@ -37,10 +39,7 @@ pub enum Message {
 
 impl Message {
     pub fn error(title: impl ToString, message: impl ToString) -> Self {
-        Self::Error(
-            title.to_string(),
-            message.to_string(),
-        )
+        Self::Error(title.to_string(), message.to_string())
     }
 }
 
@@ -65,11 +64,11 @@ impl Application {
         let mut steamdir = steamlocate::SteamDir::locate().unwrap();
         const TEAMFORTRESS2_STEAMAPPID: u32 = 440;
 
-        steamdir.app(&TEAMFORTRESS2_STEAMAPPID).map(|dir|dir.path.clone())
+        steamdir.app(&TEAMFORTRESS2_STEAMAPPID).map(|dir| dir.path.clone())
     }
 
     fn get_team_fortress_huds_directory() -> Option<PathBuf> {
-        Self::get_team_fortress_directory().map(|directory|directory.join("tf").join("custom"))
+        Self::get_team_fortress_directory().map(|directory| directory.join("tf").join("custom"))
     }
 }
 
@@ -84,7 +83,7 @@ impl IcedApplication for Application {
             Self {
                 views: Views::new(View::List),
                 state: State::default(),
-                is_modifying: false
+                is_modifying: false,
             },
             commands::load_state(Self::get_application_state_file_path()),
         )
@@ -96,9 +95,7 @@ impl IcedApplication for Application {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            Message::ShowAdd => {
-                self.views.push(View::Add(AddContext::default()))
-            },
+            Message::ShowAdd => self.views.push(View::Add(AddContext::default())),
             Message::DownloadUrlChanged(url) => {
                 if let Some(View::Add(context)) = self.views.current_mut() {
                     context.download_url = url;
@@ -117,7 +114,7 @@ impl IcedApplication for Application {
                 if let Some(View::Add(context)) = self.views.current_mut() {
                     context.error = None;
                 }
-                return commands::scan_package(source)
+                return commands::scan_package(source);
             }
             Message::Error(title, error) => {
                 println!("{}: {}", title, error);
@@ -151,7 +148,7 @@ impl IcedApplication for Application {
 
                         self.is_modifying = true;
 
-                        return Command::batch(commands.into_iter())
+                        return Command::batch(commands.into_iter());
                     }
                 }
             }
@@ -160,7 +157,7 @@ impl IcedApplication for Application {
                     if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
                         assert!(matches!(info.install, Install::Installed { .. }));
                         self.is_modifying = true;
-                        return commands::uninstall_hud(&info, huds_directory)
+                        return commands::uninstall_hud(&info, huds_directory);
                     }
                 }
             }
@@ -189,9 +186,9 @@ impl IcedApplication for Application {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-        subscription::events_with(|event, _status | {
+        subscription::events_with(|event, _status| {
             if let event::Event::Window(window::Event::CloseRequested) = event {
-                return Some(Message::Quit)
+                return Some(Message::Quit);
             }
 
             None
@@ -200,12 +197,12 @@ impl IcedApplication for Application {
 }
 
 mod commands {
-    use std::path::PathBuf;
-    use iced::Command;
-    use tempdir::TempDir;
-    use hudhub_core::{fetch_package, FetchError, HudInfo, HudName, install, Source, uninstall};
-    use crate::Message;
     use crate::state::State;
+    use crate::Message;
+    use hudhub_core::{fetch_package, install, uninstall, FetchError, HudInfo, HudName, Source};
+    use iced::Command;
+    use std::path::PathBuf;
+    use tempdir::TempDir;
 
     #[derive(thiserror::Error, Debug)]
     enum ScanPackageError {
@@ -220,18 +217,11 @@ mod commands {
         let source_for_future = source.clone();
 
         Command::perform(
-            async move {
-                get_hud_names(source_for_future).await
-            }, move |result|{
-                match result {
-                    Err(error) => {
-                        Message::error("Failed to scan package", error)
-                    }
-                    Ok(hud_names) => {
-                        Message::AddHuds(source, hud_names)
-                    }
-                }
-            }
+            async move { get_hud_names(source_for_future).await },
+            move |result| match result {
+                Err(error) => Message::error("Failed to scan package", error),
+                Ok(hud_names) => Message::AddHuds(source, hud_names),
+            },
         )
     }
 
@@ -247,13 +237,9 @@ mod commands {
 
         println!("Save state: {}", path.display());
 
-        Command::perform(async move {
-            State::save(&state, &path).await
-        }, |result| {
-            match result {
-                Ok(()) => { Message::StateSaved }
-                Err(error) => { Message::error("Failed to save application state", error) }
-            }
+        Command::perform(async move { State::save(&state, &path).await }, |result| match result {
+            Ok(()) => Message::StateSaved,
+            Err(error) => Message::error("Failed to save application state", error),
         })
     }
 
@@ -262,38 +248,32 @@ mod commands {
 
         println!("Load state: {}", path.display());
 
-        Command::perform(async move {
-            State::load(&path).await
-        }, |result| {
-            match result {
-                Ok(state) => { Message::StateLoaded(state) }
-                Err(error) => { Message::error("Failed to load application state", error) }
-            }
+        Command::perform(async move { State::load(&path).await }, |result| match result {
+            Ok(state) => Message::StateLoaded(state),
+            Err(error) => Message::error("Failed to load application state", error),
         })
     }
 
     pub fn install_hud(source: Source, name: HudName, huds_directory: PathBuf) -> Command<Message> {
         let hud_name = name.clone();
 
-        Command::perform(async move {
-            install(source, hud_name, huds_directory).await
-        },move |result| {
-            Message::InstallationFinished(name.clone(), result)
-        })
+        Command::perform(
+            async move { install(source, hud_name, huds_directory).await },
+            move |result| Message::InstallationFinished(name.clone(), result),
+        )
     }
 
     pub fn uninstall_hud(hud_info: &HudInfo, huds_directory: PathBuf) -> Command<Message> {
         let hud_directory_path = hud_info.install.as_installed().unwrap().0.clone();
         let hud_name = hud_info.name.clone();
 
-        Command::perform(async move {
-            uninstall(&hud_directory_path, huds_directory).await
-        },move |result| {
-            match result {
-                Ok(()) => { Message::UninstallationFinished(hud_name) }
-                Err(error) => { Message::error(format!("Failed to uninstall HUD '{0}'", hud_name), error) }
-            }
-        })
+        Command::perform(
+            async move { uninstall(&hud_directory_path, huds_directory).await },
+            move |result| match result {
+                Ok(()) => Message::UninstallationFinished(hud_name),
+                Err(error) => Message::error(format!("Failed to uninstall HUD '{0}'", hud_name), error),
+            },
+        )
     }
 }
 
@@ -306,9 +286,11 @@ mod ui {
     pub fn list_view(registry: &Registry, is_modifying: bool) -> Element<Message> {
         column![
             button("Add").on_press(Message::ShowAdd),
-            scrollable(registry
-            .iter()
-            .fold(column![], |c, info| c.push(hud_info_view(info, is_modifying))))
+            scrollable(
+                registry
+                    .iter()
+                    .fold(column![], |c, info| c.push(hud_info_view(info, is_modifying)))
+            )
         ]
         .into()
     }
@@ -324,22 +306,25 @@ mod ui {
             uninstall_button = uninstall_button.on_press(Message::Uninstall(info.name.clone()));
         }
 
-
         match info.install {
-            Install::None => { row![text(&info.name), install_button] }
-            Install::Installed { .. } => { row![text(&info.name), uninstall_button] }
-            Install::Failed { .. } => { row![text(&info.name)] }
+            Install::None => {
+                row![text(&info.name), install_button]
+            }
+            Install::Installed { .. } => {
+                row![text(&info.name), uninstall_button]
+            }
+            Install::Failed { .. } => {
+                row![text(&info.name)]
+            }
         }
         .into()
     }
 
     pub fn add_view(context: &AddContext) -> Element<Message> {
-        let mut main_column = column![
-            row![
-                text_input("Enter download url", &context.download_url, Message::DownloadUrlChanged),
-                button("Add").on_press(Message::ScanPackageToAdd(Source::DownloadUrl(context.download_url.clone()))),
-            ]
-        ];
+        let mut main_column = column![row![
+            text_input("Enter download url", &context.download_url, Message::DownloadUrlChanged),
+            button("Add").on_press(Message::ScanPackageToAdd(Source::DownloadUrl(context.download_url.clone()))),
+        ]];
 
         if let Some(error) = context.error.as_ref() {
             main_column = main_column.push(text(error))

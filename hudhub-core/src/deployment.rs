@@ -65,8 +65,7 @@ mod tests {
     async fn test_install_zip() {
         let source = Source::DownloadUrl("https://github.com/n0kk/ahud/archive/refs/heads/master.zip".into());
         let directory = TempDir::new("test_install_zip").unwrap();
-        let install = install(source, HudName::new("ahud"), directory.path().to_path_buf())
-            .await;
+        let install = install(source, HudName::new("ahud"), directory.path().to_path_buf()).await;
         let hud = HudDirectory::scan(install.as_installed().unwrap().0).unwrap();
 
         assert_eq!(HudName::new("ahud"), hud.name);
@@ -76,8 +75,7 @@ mod tests {
     async fn test_install_7z() {
         let source = Source::DownloadUrl("https://www.dropbox.com/s/cwwmppnn3nn68av/3HUD.7z?dl=1".into());
         let directory = TempDir::new("test_install_7z").unwrap();
-        let install = install(source, HudName::new("3hud"), directory.path().to_path_buf())
-            .await;
+        let install = install(source, HudName::new("3hud"), directory.path().to_path_buf()).await;
         let hud = HudDirectory::scan(install.as_installed().unwrap().0).unwrap();
 
         assert_eq!(HudName::new("3hud"), hud.name);

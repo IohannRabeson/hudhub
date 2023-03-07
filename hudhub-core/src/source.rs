@@ -1,7 +1,7 @@
+use crate::source::archives::{extract_archive, ArchiveError};
 use crate::{OpenPackageError, Package};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
-use crate::source::archives::{ArchiveError, extract_archive};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum Source {
@@ -32,7 +32,9 @@ pub enum FetchError {
 
 pub async fn fetch_package(source: Source, directory: impl AsRef<Path>) -> Result<Package, FetchError> {
     let package_root_directory = match source {
-        Source::None => { panic!("Trying to fetch a package without source") }
+        Source::None => {
+            panic!("Trying to fetch a package without source")
+        }
         Source::DownloadUrl(url) => {
             let archive_file_path = download_url(&url, &directory).await?;
 
@@ -42,8 +44,6 @@ pub async fn fetch_package(source: Source, directory: impl AsRef<Path>) -> Resul
 
     Ok(Package::open(package_root_directory)?)
 }
-
-
 
 mod archives {
     #[derive(thiserror::Error, Debug)]
@@ -66,7 +66,10 @@ mod archives {
     #[error("Failed to unrar archive: {0}")]
     struct RarError(String);
 
-    pub fn extract_archive(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
+    pub fn extract_archive(
+        archive_file_path: &Path,
+        destination_directory: impl AsRef<Path>,
+    ) -> Result<PathBuf, ArchiveError> {
         match archive_file_path.extension().and_then(|extension| extension.to_str()) {
             Some("zip") => extract_zip(archive_file_path, destination_directory),
             Some("7z") => extract_7z(archive_file_path, destination_directory),
@@ -77,7 +80,8 @@ mod archives {
 
     fn extract_zip(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
         let destination_directory = destination_directory.as_ref();
-        let archive_file = std::fs::File::open(archive_file_path).map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
+        let archive_file = std::fs::File::open(archive_file_path)
+            .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
         let mut archive = zip::ZipArchive::new(archive_file)
             .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
         let mut hud_directory: Option<PathBuf> = None;
@@ -97,11 +101,14 @@ mod archives {
             let destination_path = destination_directory.join(zip_file_name);
 
             if zip_file.name().ends_with("/") {
-                std::fs::create_dir_all(&destination_path).map_err(|e| ArchiveError::CreateDirectoryFailed(destination_path.to_path_buf(), e))?;
+                std::fs::create_dir_all(&destination_path)
+                    .map_err(|e| ArchiveError::CreateDirectoryFailed(destination_path.to_path_buf(), e))?;
             } else {
-                let mut out_file = std::fs::File::create(&destination_path).map_err(|e| ArchiveError::CreateFileFailed(destination_path.to_path_buf(), e))?;
+                let mut out_file = std::fs::File::create(&destination_path)
+                    .map_err(|e| ArchiveError::CreateFileFailed(destination_path.to_path_buf(), e))?;
 
-                std::io::copy(&mut zip_file, &mut out_file).map_err(|e| ArchiveError::CopyFileFailed(destination_path.to_path_buf(), e))?;
+                std::io::copy(&mut zip_file, &mut out_file)
+                    .map_err(|e| ArchiveError::CopyFileFailed(destination_path.to_path_buf(), e))?;
             }
         }
 
@@ -111,7 +118,8 @@ mod archives {
     fn extract_7z(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
         let destination_directory = destination_directory.as_ref();
 
-        sevenz_rust::decompress_file(archive_file_path, destination_directory).map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
+        sevenz_rust::decompress_file(archive_file_path, destination_directory)
+            .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
 
         Ok(destination_directory.to_path_buf())
     }
@@ -121,30 +129,32 @@ mod archives {
 
         unrar::Archive::new(archive_file_path)
             .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?
-            .extract_to(destination_directory).map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?
-            .process().map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?;
-
+            .extract_to(destination_directory)
+            .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?
+            .process()
+            .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(RarError(e.to_string()))))?;
 
         Ok(destination_directory.to_path_buf())
     }
 }
 
+/// Try to find the file name, either from the URL pasted by the user, or from
+/// the URL as returned by the GET response.
 fn get_file_name(url: &str, response: &reqwest::Response) -> Option<String> {
     if let Some(file_name) = extract_file_name(url) {
         if is_valid_filename_with_extension(&file_name) {
-            return Some(file_name)
+            return Some(file_name);
         }
     }
 
     if let Some(file_name) = extract_file_name(response.url().path()) {
         if is_valid_filename_with_extension(&file_name) {
-            return Some(file_name)
+            return Some(file_name);
         }
     }
 
     None
 }
-
 
 fn is_valid_filename_with_extension(file_name: &str) -> bool {
     PathBuf::from(file_name).extension().is_some()
@@ -158,8 +168,7 @@ fn extract_file_name(url: &str) -> Option<String> {
 
         if let Some(end_position) = url[position + 1..].find('?') {
             Some(url[position + 1..end_position + position + 1].to_string())
-        }
-        else {
+        } else {
             Some(url[position + 1..].to_string())
         }
     })
@@ -244,6 +253,4 @@ mod tests {
         assert_eq!(package.hud_directories.len(), 1);
         assert_eq!(package.hud_directories[0].name, HudName::new("7hud"));
     }
-
-
 }

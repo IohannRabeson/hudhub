@@ -1,6 +1,6 @@
-use std::path::Path;
 use hudhub_core::Registry;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct State {
@@ -27,9 +27,7 @@ impl State {
 
                 Ok(bincode::deserialize(&encoded).expect("deserialize state"))
             }
-            false => {
-                Ok(State::default())
-            }
+            false => Ok(State::default()),
         }
     }
 }

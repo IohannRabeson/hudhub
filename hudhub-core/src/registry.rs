@@ -2,9 +2,9 @@ use crate::source::Source;
 use crate::HudName;
 use chrono::{DateTime, Utc};
 use enum_as_inner::EnumAsInner;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct Registry {
@@ -40,9 +40,9 @@ impl Registry {
     }
 
     pub fn get_installed(&self) -> Option<&HudInfo> {
-        self.info.values().find(|info|{
-            matches!(info.install, Install::Installed { .. })
-        })
+        self.info
+            .values()
+            .find(|info| matches!(info.install, Install::Installed { .. }))
     }
 
     pub fn set_install(&mut self, name: &HudName, install: Install) {
