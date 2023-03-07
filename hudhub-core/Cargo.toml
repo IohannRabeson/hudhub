@@ -18,7 +18,7 @@ tokio = { version = "1.26.0", features = ["fs", "macros"] }
 
 zip = "0.6.4"
 sevenz-rust = { version = "0.2.8", default-features = false, features = ["zstd"] }
-unrar = { git = "https://github.com/muja/unrar.rs" }
+unrar = { git = "https://github.com/IohannRabeson/unrar.rs", branch = "macos_fix" }
 keyvalues-parser = "0.1.0"
 
 [dev-dependencies]

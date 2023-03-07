@@ -2,10 +2,10 @@
 //! Usually, an installation package contains one file info.vdf, but it can contain
 //! more than one if the package contains multiple HUDs.
 
+use keyvalues_parser::Vdf;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
-use keyvalues_parser::Vdf;
-use serde::{Serialize, Deserialize};
 
 const INFO_VDF_FILE_NAME: &str = "info.vdf";
 
@@ -67,7 +67,7 @@ impl Package {
     }
 
     pub fn hud_names(&self) -> impl Iterator<Item = &HudName> {
-        self.hud_directories.iter().map(|directory|&directory.name)
+        self.hud_directories.iter().map(|directory| &directory.name)
     }
 
     pub fn find_hud(&self, name: &HudName) -> Option<&HudDirectory> {
