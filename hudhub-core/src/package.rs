@@ -27,7 +27,7 @@ impl Display for HudName {
 pub struct HudDirectory {
     /// The path to the directory, relative to the package root directory.
     pub path: PathBuf,
-    /// The name parsed in the info.vdf file.
+    /// The name of the HUD.
     /// This is the unique identifier of the HUD.
     pub name: HudName,
 }
