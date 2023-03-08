@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use crate::commands::save_state;
 use hudhub_core::{HudDirectory, HudName, Install, Source, Url};
 use iced::widget::text_input;
@@ -9,10 +10,12 @@ use platform_dirs::AppDirs;
 use state::State;
 use std::path::PathBuf;
 use ui::add_view;
+use crate::paths::{DefaultPathsProvider, TestPathsProvider, PathsProvider};
 
 mod commands;
 mod state;
 mod ui;
+mod paths;
 
 enum View {
     List,
@@ -80,30 +83,10 @@ struct Application {
     state: State,
     selected_hud: Option<HudName>,
     is_loading: bool,
+    paths_provider: Box<dyn PathsProvider>,
 }
 
 impl Application {
-    fn get_application_directory() -> PathBuf {
-        let app_dirs = AppDirs::new(Some("hudhub"), false).unwrap();
-
-        app_dirs.config_dir
-    }
-
-    fn get_application_state_file_path() -> PathBuf {
-        Self::get_application_directory().join("application.state")
-    }
-
-    fn get_team_fortress_directory() -> Option<PathBuf> {
-        let mut steamdir = steamlocate::SteamDir::locate().unwrap();
-        const TEAMFORTRESS2_STEAMAPPID: u32 = 440;
-
-        steamdir.app(&TEAMFORTRESS2_STEAMAPPID).map(|dir| dir.path.clone())
-    }
-
-    fn get_team_fortress_huds_directory() -> Option<PathBuf> {
-        Self::get_team_fortress_directory().map(|directory| directory.join("tf").join("custom"))
-    }
-
     fn process_add_view_message(&mut self, message: AddViewMessage) -> Command<Message> {
         match message {
             AddViewMessage::Show => {
@@ -156,7 +139,7 @@ impl Application {
                 }
 
                 if let Some(info) = self.state.registry.remove(&hud_name) {
-                    if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
+                    if let Some(huds_directory) = self.paths_provider.get_huds_directory() {
                         return commands::uninstall_hud(&info, huds_directory.to_path_buf());
                     }
                 }
@@ -173,16 +156,27 @@ impl IcedApplication for Application {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        let paths_provider: Box<dyn PathsProvider> = match std::env::args().find(|arg| arg == "--testing-mode") {
+            None => Box::new(DefaultPathsProvider::new()),
+            Some(_) => {
+                println!("Testing mode enabled!");
+                Box::new(TestPathsProvider::new())
+            },
+        };
+        let application_state_file_path = paths_provider.get_application_state_file_path();
+        let huds_directory_path = paths_provider.get_huds_directory();
+
         (
             Self {
                 views: Views::new(View::List),
                 state: State::default(),
                 selected_hud: None,
                 is_loading: false,
+                paths_provider,
             },
             Command::batch([
-                commands::load_state(Self::get_application_state_file_path()),
-                commands::scan_huds_directory(Self::get_team_fortress_huds_directory()),
+                commands::load_state(application_state_file_path),
+                commands::scan_huds_directory(huds_directory_path),
             ]),
         )
     }
@@ -222,13 +216,13 @@ impl IcedApplication for Application {
             }
             Message::Quit => {
                 return Command::batch([
-                    save_state(self.state.clone(), Self::get_application_state_file_path()),
+                    save_state(self.state.clone(), self.paths_provider.get_application_state_file_path()),
                     window::close(),
                 ])
             }
             Message::Install(hud_name) => {
                 if let Some(info) = self.state.registry.get(&hud_name) {
-                    if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
+                    if let Some(huds_directory) = self.paths_provider.get_huds_directory() {
                         assert!(!matches!(info.install, Install::Installed { .. }));
 
                         let mut commands = Vec::new();
@@ -247,7 +241,7 @@ impl IcedApplication for Application {
             }
             Message::Uninstall(hud_name) => {
                 if let Some(info) = self.state.registry.get(&hud_name) {
-                    if let Some(huds_directory) = Self::get_team_fortress_huds_directory() {
+                    if let Some(huds_directory) = self.paths_provider.get_huds_directory() {
                         assert!(matches!(info.install, Install::Installed { .. }));
                         self.is_loading = true;
                         return commands::uninstall_hud(&info, huds_directory);
