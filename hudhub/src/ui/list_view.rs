@@ -1,8 +1,9 @@
 use crate::ui::{color, DEFAULT_SPACING};
 use crate::{AddViewMessage, ListViewMessage, Message};
 use hudhub_core::{HudInfo, HudName, Install, Registry, Source};
-use iced::widget::{button, column, container, row, scrollable, text, Container, Scrollable, vertical_space};
-use iced::{theme, Background, Color, Element, Length, Theme, Alignment};
+use iced::widget::{button, column, container, row, scrollable, text, vertical_space, Container, Scrollable};
+use iced::{theme, Alignment, Background, Color, Element, Length, Theme};
+use iced_aw::Spinner;
 
 pub fn view<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_loading: bool) -> Element<'a, Message> {
     row![
@@ -15,6 +16,14 @@ pub fn view<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_lo
 }
 
 fn action_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_loading: bool) -> Container<'a, Message> {
+    if is_loading {
+        return container(Spinner::new())
+            .center_x()
+            .center_y()
+            .width(Length::Fill)
+            .height(Length::Fill);
+    }
+
     let mut content = column![];
 
     if let Some(selected_hud) = selected_hud {
@@ -38,9 +47,20 @@ fn action_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is
     }
 
     content = content.push(vertical_space(Length::Fill));
-    content = content.push(button(text("Add HUD").size(36)).padding(16).on_press(Message::AddView(AddViewMessage::Show)).style(theme::Button::Positive));
+    content = content.push(
+        button(text("Add HUD").size(36))
+            .padding(16)
+            .on_press(Message::AddView(AddViewMessage::Show))
+            .style(theme::Button::Positive),
+    );
 
-    container(content.spacing(DEFAULT_SPACING).align_items(Alignment::Center).width(Length::Fill)).width(Length::Fill)
+    container(
+        content
+            .spacing(DEFAULT_SPACING)
+            .align_items(Alignment::Center)
+            .width(Length::Fill),
+    )
+    .width(Length::Fill)
 }
 
 fn hud_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>) -> Container<'a, Message> {
