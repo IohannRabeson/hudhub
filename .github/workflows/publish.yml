@@ -1,0 +1,51 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  publish:
+    name: Publish for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: hudhub.exe
+            asset_name: hudhub-windows.exe
+          - os: macos-latest
+            artifact_name: hudhub.zip
+            asset_name: hudhub-macos.zip
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Build
+        env:
+          MACOSX_DEPLOYMENT_TARGET: 10.8
+        run: cargo build --release --locked
+
+      - name: Bundle
+        if: ${{ matrix.os == 'macos-latest' }}
+        run: |
+          cd hudhub
+          cargo install cargo-bundle
+          cargo bundle --release
+
+      - uses: thedoctor0/zip-release@0.7.1
+        if: ${{ matrix.os == 'macos-latest' }}
+        with:
+          type: 'zip'
+          path: 'target/release/bundle/osx/'
+          filename: 'target/release/hudhub.zip'
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}
