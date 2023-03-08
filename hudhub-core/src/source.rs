@@ -139,7 +139,8 @@ mod archives {
 }
 
 /// Try to find the file name, either from the URL pasted by the user, or from
-/// the URL as returned by the GET response.
+/// the URL as returned by the GET response. It also try to get the value for the entry
+/// CONTENT_DISPOSITION in the response's headers.
 fn get_file_name(url: &str, response: &reqwest::Response) -> Option<String> {
     if let Some(file_name) = extract_file_name(url) {
         if is_valid_filename_with_extension(&file_name) {
@@ -150,6 +151,14 @@ fn get_file_name(url: &str, response: &reqwest::Response) -> Option<String> {
     if let Some(file_name) = extract_file_name(response.url().path()) {
         if is_valid_filename_with_extension(&file_name) {
             return Some(file_name);
+        }
+    }
+
+    if let Some(file_name) = response.headers().get(reqwest::header::CONTENT_DISPOSITION) {
+        if let Ok(file_name) = file_name.to_str() {
+            if is_valid_filename_with_extension(file_name) {
+                return Some(file_name.to_string());
+            }
         }
     }
 
@@ -190,6 +199,7 @@ async fn download_url(url: &str, directory: impl AsRef<Path>) -> Result<PathBuf,
 mod tests {
     use super::extract_file_name;
     use test_case::test_case;
+    use super::is_valid_filename_with_extension;
 
     #[test_case(
         "https://github.com/n0kk/ahud/archive/refs/heads/master.zip",
@@ -200,6 +210,12 @@ mod tests {
     #[test_case("", None)]
     fn test_extract_file_name(input: &str, expected: Option<String>) {
         assert_eq!(expected, extract_file_name(input))
+    }
+
+    #[test_case("3HUD.7z", true)]
+    #[test_case("BAAAAD", false)]
+    fn test_is_valid_filename_with_extension(input: &str, expected: bool) {
+        assert_eq!(expected, is_valid_filename_with_extension(input))
     }
 }
 
@@ -257,5 +273,15 @@ mod slow_tests {
 
         assert_eq!(package.hud_directories.len(), 1);
         assert_eq!(package.hud_directories[0].name, HudName::new("7hud-5.11"));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_masterconfig() {
+        let directory = TempDir::new("test_fetch_masterconfig").unwrap();
+        let source = Source::DownloadUrl("https://codeload.github.com/p3tr1ch0r/insomniaHUD/legacy.zip/9753cfb9d655a617d4527cce37fca079f740378f".into());
+        let package = fetch_package(source, directory.path()).await.unwrap();
+
+        assert_eq!(package.hud_directories.len(), 1);
+        assert_eq!(package.hud_directories[0].name, HudName::new("p3tr1ch0r-insomniaHUD-9753cfb"));
     }
 }
