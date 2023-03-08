@@ -7,6 +7,7 @@ use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
 const INFO_VDF_FILE_NAME: &str = "info.vdf";
+const VALVE_PACKAGE_FILE_EXTENSION: &str = "vpk";
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct HudName(String);
@@ -27,13 +28,35 @@ impl Display for HudName {
 pub struct PackageEntry {
     /// The path to the directory, relative to the package root directory.
     pub path: PathBuf,
+
     /// The name of the HUD.
     /// This is the unique identifier of the HUD.
     pub name: HudName,
+
+    /// The kind of entry.
+    pub kind: PackageEntryKind,
+}
+
+#[derive(Clone, Debug)]
+pub enum PackageEntryKind {
+    Directory,
+    VpkFile,
 }
 
 impl PackageEntry {
-    pub fn directory(directory_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
+        let path = path.as_ref();
+
+        if path.is_dir() && path.join(INFO_VDF_FILE_NAME).is_file() {
+            Self::directory(path)
+        } else if path.is_file() && path.extension().and_then(|e|e.to_str()) == Some(VALVE_PACKAGE_FILE_EXTENSION) {
+            Self::vpk_file(path)
+        } else {
+            Err(OpenHudDirectoryError::UnsupportedType)
+        }
+    }
+
+    fn directory(directory_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
         let path = directory_path.as_ref().to_path_buf();
         assert!(path.is_dir());
         let name = path
@@ -44,10 +67,11 @@ impl PackageEntry {
         Ok(Self {
             path: path.clone(),
             name: HudName::new(name),
+            kind: PackageEntryKind::Directory,
         })
     }
 
-    pub fn vpk_file(file_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
+    fn vpk_file(file_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
         let path = file_path.as_ref().to_path_buf();
         assert!(path.is_file());
         let name = path
@@ -58,6 +82,7 @@ impl PackageEntry {
         Ok(Self {
             path: path.clone(),
             name: HudName::new(name),
+            kind: PackageEntryKind::VpkFile,
         })
     }
 }
@@ -91,19 +116,8 @@ impl Package {
 
         for entry in walkdir::WalkDir::new(root_directory) {
             if let Ok(entry) = entry {
-                if entry.file_type().is_dir() {
-                    if entry.path().join(INFO_VDF_FILE_NAME).exists() {
-                        if let Ok(entry) = PackageEntry::directory(entry.path()) {
-                            hud_directories.push(entry);
-                        }
-                    }
-                }
-                else if entry.file_type().is_file() {
-                    if entry.path().extension().and_then(|extension|extension.to_str()) == Some("vpk") {
-                        if let Ok(entry) = PackageEntry::vpk_file(entry.path()) {
-                            hud_directories.push(entry);
-                        }
-                    }
+                if let Ok(package_entry) = PackageEntry::from_path(entry.path()) {
+                    hud_directories.push(package_entry);
                 }
             }
         }
@@ -119,6 +133,9 @@ pub enum OpenHudDirectoryError {
 
     #[error("Failed to read .vdf file: {1}")]
     FailedToReadVdfFile(PathBuf, std::io::Error),
+
+    #[error("Unsupported type")]
+    UnsupportedType,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -137,7 +154,7 @@ pub enum ScanPackageError {
 
 #[cfg(test)]
 mod slow_tests {
-    use crate::package::{PackageEntry, HudName, Package};
+    use crate::package::{PackageEntry, HudName, Package, INFO_VDF_FILE_NAME};
     use std::path::Path;
     use tempdir::TempDir;
     use test_case::test_case;
@@ -145,7 +162,7 @@ mod slow_tests {
     fn create_vdf_file(name: &str, directory: &Path) {
         let mut content = format!("\"{}\"\n", name);
         content.push_str("{\n    \"ui_version\"    \"3\"\n}");
-        std::fs::write(directory.join("info.vdf"), content).unwrap();
+        std::fs::write(directory.join(INFO_VDF_FILE_NAME), content).unwrap();
     }
 
     #[test]
