@@ -1,6 +1,6 @@
 use crate::state::{LoadStateError, State};
 use crate::Message;
-use hudhub_core::{fetch_package, install, uninstall, FetchError, HudDirectory, HudInfo, HudName, Source, Install};
+use hudhub_core::{fetch_package, install, uninstall, FetchError, PackageEntry, HudInfo, HudName, Source, Install};
 use iced::Command;
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
@@ -44,7 +44,7 @@ pub fn save_state(state: State, path: impl Into<PathBuf>) -> Command<Message> {
     })
 }
 
-fn search_hud_install(huds_directory: &Path) -> Vec<HudDirectory> {
+fn search_hud_install(huds_directory: &Path) -> Vec<PackageEntry> {
     let mut directories = Vec::new();
 
     if let Ok(read_dir) = std::fs::read_dir(huds_directory) {
@@ -53,7 +53,7 @@ fn search_hud_install(huds_directory: &Path) -> Vec<HudDirectory> {
                 if let Ok(file_type) = entry.file_type() {
                     if file_type.is_dir() {
                         if entry.path().join("info.vdf").exists() {
-                            if let Ok(directory) = HudDirectory::new(entry.path()) {
+                            if let Ok(directory) = PackageEntry::directory(entry.path()) {
                                 directories.push(directory);
                             }
                         }
@@ -102,10 +102,10 @@ pub fn install_hud(source: Source, name: HudName, huds_directory: PathBuf) -> Co
 pub fn uninstall_hud(hud_info: &HudInfo, huds_directory: PathBuf) -> Command<Message> {
     if let Install::Installed { path, .. } = &hud_info.install {
         let hud_name = hud_info.name.clone();
-        let hud_directory = path.clone();
+        let hud_path = path.clone();
 
         Command::perform(
-            async move { uninstall(&hud_directory, huds_directory).await },
+            async move { uninstall(&hud_path, huds_directory).await },
             move |result| match result {
                 Ok(()) => Message::UninstallationFinished(hud_name),
                 Err(error) => Message::error(format!("Failed to uninstall HUD '{0}'", hud_name), error),

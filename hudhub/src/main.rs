@@ -1,5 +1,5 @@
 use crate::commands::save_state;
-use hudhub_core::{HudDirectory, HudName, Install, Source, Url};
+use hudhub_core::{PackageEntry, HudName, Install, Source, Url};
 use iced::widget::text_input;
 use iced::{
     event, subscription, window, Application as IcedApplication, Command, Element, Renderer, Settings, Subscription, Theme,
@@ -64,7 +64,7 @@ pub enum Message {
     StateLoaded(State),
     InstallationFinished(HudName, Install),
     UninstallationFinished(HudName),
-    FoundInstalledHuds(Vec<HudDirectory>),
+    FoundInstalledHuds(Vec<PackageEntry>),
     Quit,
     Back,
 }
