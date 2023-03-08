@@ -84,13 +84,6 @@ mod archives {
             .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
         let mut archive = zip::ZipArchive::new(archive_file)
             .map_err(|e| ArchiveError::ReadFailed(archive_file_path.to_path_buf(), Box::new(e)))?;
-        let mut hud_directory: Option<PathBuf> = None;
-
-        if !archive.is_empty() {
-            let zip_file = archive.by_index(0).unwrap();
-            assert!(zip_file.is_dir());
-            hud_directory = Some(destination_directory.join(zip_file.name()));
-        }
 
         for i in 0..archive.len() {
             let mut zip_file = archive.by_index(i).unwrap();
@@ -112,7 +105,7 @@ mod archives {
             }
         }
 
-        Ok(hud_directory.expect("root directory"))
+        Ok(destination_directory.to_path_buf())
     }
 
     fn extract_7z(archive_file_path: &Path, destination_directory: impl AsRef<Path>) -> Result<PathBuf, ArchiveError> {
@@ -231,8 +224,8 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://github.com/n0kk/ahud/archive/refs/heads/master.zip".into());
         let package = fetch_package(source, directory.path()).await.unwrap();
 
-        assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("ahud-master"));
+        assert_eq!(package.entries.len(), 1);
+        assert_eq!(package.entries[0].name, HudName::new("ahud-master"));
     }
 
     #[tokio::test]
@@ -241,8 +234,8 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://www.dropbox.com/s/cwwmppnn3nn68av/3HUD.7z?dl=1".into());
         let package = fetch_package(source, directory.path()).await.unwrap();
 
-        assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("3HUD"));
+        assert_eq!(package.entries.len(), 1);
+        assert_eq!(package.entries[0].name, HudName::new("3HUD"));
     }
 
     #[tokio::test]
@@ -251,8 +244,8 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://gamebanana.com/dl/815166".into());
         let package = fetch_package(source, directory.path()).await.unwrap();
 
-        assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("Black-Mesa-HUD"));
+        assert_eq!(package.entries.len(), 1);
+        assert_eq!(package.entries[0].name, HudName::new("Black-Mesa-HUD"));
     }
 
     #[tokio::test]
@@ -261,8 +254,8 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://gamebanana.com/dl/601806".into());
         let package = fetch_package(source, directory.path()).await.unwrap();
 
-        assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("7hud-5.11"));
+        assert_eq!(package.entries.len(), 1);
+        assert_eq!(package.entries[0].name, HudName::new("7hud-5.11"));
     }
 
     #[tokio::test]
@@ -271,8 +264,8 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://gamebanana.com/dl/601806".into());
         let package = fetch_package(source, directory.path()).await.unwrap();
 
-        assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("7hud-5.11"));
+        assert_eq!(package.entries.len(), 1);
+        assert_eq!(package.entries[0].name, HudName::new("7hud-5.11"));
     }
 
     #[tokio::test]
@@ -281,7 +274,17 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://codeload.github.com/p3tr1ch0r/insomniaHUD/legacy.zip/9753cfb9d655a617d4527cce37fca079f740378f".into());
         let package = fetch_package(source, directory.path()).await.unwrap();
 
-        assert_eq!(package.hud_directories.len(), 1);
-        assert_eq!(package.hud_directories[0].name, HudName::new("p3tr1ch0r-insomniaHUD-9753cfb"));
+        assert_eq!(package.entries.len(), 1);
+        assert_eq!(package.entries[0].name, HudName::new("p3tr1ch0r-insomniaHUD-9753cfb"));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_minihub_vpk() {
+        let directory = TempDir::new("test_fetch_vpk").unwrap();
+        let source = Source::DownloadUrl("https://gamebanana.com/dl/945012".into());
+        let package = fetch_package(source, directory.path()).await.unwrap();
+
+        assert_eq!(package.entries.len(), 1);
+        assert_eq!(package.entries[0].name, HudName::new("minhud_plus"));
     }
 }

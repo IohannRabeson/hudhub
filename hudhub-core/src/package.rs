@@ -22,9 +22,9 @@ impl Display for HudName {
         write!(f, "{}", self.0)
     }
 }
-/// The root directory of a HUD.
+/// A HUD in a package.
 #[derive(Clone, Debug)]
-pub struct HudDirectory {
+pub struct PackageEntry {
     /// The path to the directory, relative to the package root directory.
     pub path: PathBuf,
     /// The name of the HUD.
@@ -32,8 +32,8 @@ pub struct HudDirectory {
     pub name: HudName,
 }
 
-impl HudDirectory {
-    pub fn new(directory_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
+impl PackageEntry {
+    pub fn directory(directory_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
         let path = directory_path.as_ref().to_path_buf();
         assert!(path.is_dir());
         let name = path
@@ -46,12 +46,26 @@ impl HudDirectory {
             name: HudName::new(name),
         })
     }
+
+    pub fn vpk_file(file_path: impl AsRef<Path>) -> Result<Self, OpenHudDirectoryError> {
+        let path = file_path.as_ref().to_path_buf();
+        assert!(path.is_file());
+        let name = path
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .ok_or(OpenHudDirectoryError::FailedToFindHudName)?;
+
+        Ok(Self {
+            path: path.clone(),
+            name: HudName::new(name),
+        })
+    }
 }
 
-/// A package that contains 0 - n [`HudDirectory`].
+/// A package that contains 0 - n [`PackageEntry`].
 pub struct Package {
     pub root_directory: PathBuf,
-    pub hud_directories: Vec<HudDirectory>,
+    pub entries: Vec<PackageEntry>,
 }
 
 impl Package {
@@ -60,27 +74,34 @@ impl Package {
 
         Ok(Self {
             root_directory: root_directory.clone(),
-            hud_directories: Self::scan(&root_directory)?,
+            entries: Self::scan(&root_directory)?,
         })
     }
 
     pub fn hud_names(&self) -> impl Iterator<Item = &HudName> {
-        self.hud_directories.iter().map(|directory| &directory.name)
+        self.entries.iter().map(|directory| &directory.name)
     }
 
-    pub fn find_hud(&self, name: &HudName) -> Option<&HudDirectory> {
-        self.hud_directories.iter().find(|directory| &directory.name == name)
+    pub fn find_hud(&self, name: &HudName) -> Option<&PackageEntry> {
+        self.entries.iter().find(|entry| &entry.name == name)
     }
 
-    fn scan(root_directory: &Path) -> Result<Vec<HudDirectory>, ScanPackageError> {
+    fn scan(root_directory: &Path) -> Result<Vec<PackageEntry>, ScanPackageError> {
         let mut hud_directories = Vec::new();
 
         for entry in walkdir::WalkDir::new(root_directory) {
             if let Ok(entry) = entry {
                 if entry.file_type().is_dir() {
                     if entry.path().join(INFO_VDF_FILE_NAME).exists() {
-                        if let Ok(directory) = HudDirectory::new(entry.path()) {
-                            hud_directories.push(directory);
+                        if let Ok(entry) = PackageEntry::directory(entry.path()) {
+                            hud_directories.push(entry);
+                        }
+                    }
+                }
+                else if entry.file_type().is_file() {
+                    if entry.path().extension().and_then(|extension|extension.to_str()) == Some("vpk") {
+                        if let Ok(entry) = PackageEntry::vpk_file(entry.path()) {
+                            hud_directories.push(entry);
                         }
                     }
                 }
@@ -116,7 +137,7 @@ pub enum ScanPackageError {
 
 #[cfg(test)]
 mod slow_tests {
-    use crate::package::{HudDirectory, HudName, Package};
+    use crate::package::{PackageEntry, HudName, Package};
     use std::path::Path;
     use tempdir::TempDir;
     use test_case::test_case;
@@ -134,7 +155,7 @@ mod slow_tests {
 
         let package = Package::open(package_dir.path()).unwrap();
 
-        assert_eq!(1, package.hud_directories.len());
+        assert_eq!(1, package.entries.len());
     }
 
     /// Notice the name of the HUD is specified by the name of the directory
@@ -152,8 +173,8 @@ mod slow_tests {
 
         let package = Package::open(package_dir.path()).unwrap();
 
-        assert_eq!(2, package.hud_directories.len());
-        assert_eq!(HudName("d0".into()), package.hud_directories[0].name);
-        assert_eq!(HudName("d1".into()), package.hud_directories[1].name);
+        assert_eq!(2, package.entries.len());
+        assert_eq!(HudName("d0".into()), package.entries[0].name);
+        assert_eq!(HudName("d1".into()), package.entries[1].name);
     }
 }

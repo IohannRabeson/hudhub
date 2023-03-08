@@ -1,5 +1,5 @@
 use crate::source::Source;
-use crate::{fetch_package, FetchError, HudDirectory, HudName, Install, OpenHudDirectoryError};
+use crate::{fetch_package, FetchError, PackageEntry, HudName, Install, OpenHudDirectoryError};
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
 
@@ -24,35 +24,51 @@ pub async fn install(source: Source, name: HudName, huds_directory: PathBuf) -> 
     }
 }
 
-async fn install_impl(source: Source, name: HudName, huds_directory: PathBuf) -> Result<HudDirectory, InstallError> {
+async fn install_impl(source: Source, name: HudName, huds_directory: PathBuf) -> Result<PackageEntry, InstallError> {
     let directory = TempDir::new(&format!("install_{}", name))?;
     let package = fetch_package(source, directory.path()).await?;
-    let source_directory = package
+    let source_hud_path = package
         .find_hud(&name)
         .ok_or(InstallError::HudNotFound(name.clone()))?
         .path
         .clone();
-    let source_name = source_directory.file_name().expect("source file name");
-    let destination_directory = huds_directory.join(source_name);
-    let copy_options = fs_extra::dir::CopyOptions::new().copy_inside(true);
+    let source_name = source_hud_path.file_name().expect("source file name");
+    let destination_path = huds_directory.join(source_name);
 
-    assert!(source_directory.is_dir());
+    if source_hud_path.is_dir() {
+        let copy_options = fs_extra::dir::CopyOptions::new().copy_inside(true);
 
-    fs_extra::dir::move_dir(&source_directory, &destination_directory, &copy_options)?;
+        fs_extra::dir::move_dir(&source_hud_path, &destination_path, &copy_options)?;
 
-    Ok(HudDirectory::new(&destination_directory).expect("scan destination hud directory"))
+        return Ok(PackageEntry::directory(&destination_path).expect("scan destination hud directory"))
+    } else if source_hud_path.is_file() {
+        let copy_options = fs_extra::file::CopyOptions::new().overwrite(true);
+
+        fs_extra::file::copy(&source_hud_path, &destination_path, &copy_options)?;
+
+        return Ok(PackageEntry::vpk_file(&destination_path).expect("scan vpk hud"))
+    }
+    panic!("Unsupported HUD type");
 }
 
-pub async fn uninstall(hud_directory: &Path, huds_directory: PathBuf) -> Result<(), std::io::Error> {
-    assert!(hud_directory.starts_with(&huds_directory));
+pub async fn uninstall(hud_path: &Path, huds_directory: PathBuf) -> Result<(), std::io::Error> {
+    assert!(hud_path.starts_with(&huds_directory));
 
-    tokio::fs::remove_dir_all(hud_directory).await
+    if hud_path.is_dir() {
+        return tokio::fs::remove_dir_all(hud_path).await
+    }
+
+    if hud_path.is_file() {
+        return tokio::fs::remove_file(hud_path).await
+    }
+
+    panic!("Unsupported HUD type");
 }
 
 #[cfg(test)]
 mod slow_tests {
     use super::install;
-    use crate::{HudDirectory, HudName, Source};
+    use crate::{PackageEntry, HudName, Source};
     use tempdir::TempDir;
 
     #[tokio::test]
@@ -60,7 +76,7 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://github.com/n0kk/ahud/archive/refs/heads/master.zip".into());
         let directory = TempDir::new("test_install_zip").unwrap();
         let install = install(source, HudName::new("ahud-master"), directory.path().to_path_buf()).await;
-        let hud = HudDirectory::new(install.as_installed().unwrap().0).unwrap();
+        let hud = PackageEntry::directory(install.as_installed().unwrap().0).unwrap();
 
         assert_eq!(HudName::new("ahud-master"), hud.name);
     }
@@ -70,8 +86,19 @@ mod slow_tests {
         let source = Source::DownloadUrl("https://www.dropbox.com/s/cwwmppnn3nn68av/3HUD.7z?dl=1".into());
         let directory = TempDir::new("test_install_7z").unwrap();
         let install = install(source, HudName::new("3HUD"), directory.path().to_path_buf()).await;
-        let hud = HudDirectory::new(install.as_installed().unwrap().0).unwrap();
+        let hud = PackageEntry::directory(install.as_installed().unwrap().0).unwrap();
 
         assert_eq!(HudName::new("3HUD"), hud.name);
+    }
+
+    #[tokio::test]
+    async fn test_install_vpk() {
+        let source = Source::DownloadUrl("https://gamebanana.com/dl/945012".into());
+        let directory = TempDir::new("test_install_vpk").unwrap();
+        let install = install(source, HudName::new("minhud_plus"), directory.path().to_path_buf()).await;
+        let hud = PackageEntry::vpk_file(install.as_installed().unwrap().0).unwrap();
+
+        assert_eq!(HudName::new("minhud_plus"), hud.name);
+        assert!(directory.path().join("minhud_plus.vpk").exists());
     }
 }
