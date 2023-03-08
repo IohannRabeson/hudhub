@@ -50,14 +50,8 @@ fn search_hud_install(huds_directory: &Path) -> Vec<PackageEntry> {
     if let Ok(read_dir) = std::fs::read_dir(huds_directory) {
         for entry in read_dir {
             if let Ok(entry) = entry {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_dir() {
-                        if entry.path().join("info.vdf").exists() {
-                            if let Ok(directory) = PackageEntry::directory(entry.path()) {
-                                directories.push(directory);
-                            }
-                        }
-                    }
+                if let Ok(entry) = PackageEntry::from_path(entry.path()) {
+                    directories.push(entry);
                 }
             }
         }
