@@ -4,11 +4,12 @@ use hudhub_core::{HudInfo, HudName, Install, Registry, Source};
 use iced::widget::{button, column, container, row, scrollable, text, vertical_space, Container, Scrollable};
 use iced::{theme, Alignment, Background, Color, Element, Length, Theme};
 use iced_aw::Spinner;
+use crate::ui::color::brighter_by;
 
 pub fn view<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_loading: bool) -> Element<'a, Message> {
     row![
-        hud_list(registry, selected_hud).width(Length::FillPortion(4)),
-        action_list(registry, selected_hud, is_loading).width(Length::Fill)
+        hud_list(registry, selected_hud).width(Length::FillPortion(4)).height(Length::Fill),
+        action_list(registry, selected_hud, is_loading).width(Length::Fill).height(Length::Fill)
     ]
     .spacing(DEFAULT_SPACING)
     .padding(DEFAULT_SPACING)
@@ -18,6 +19,7 @@ pub fn view<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_lo
 fn action_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is_loading: bool) -> Container<'a, Message> {
     if is_loading {
         return container(Spinner::new())
+            .style(theme::Container::Custom(Box::new(BoxContainer{})))
             .center_x()
             .center_y()
             .width(Length::Fill)
@@ -60,7 +62,22 @@ fn action_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>, is
             .align_items(Alignment::Center)
             .width(Length::Fill),
     )
+    .style(theme::Container::Custom(Box::new(BoxContainer{})))
+    .padding(DEFAULT_SPACING)
     .width(Length::Fill)
+}
+
+struct BoxContainer;
+
+impl container::StyleSheet for BoxContainer {
+    type Style = Theme;
+
+    fn appearance(&self, style: &Self::Style) -> container::Appearance {
+        container::Appearance {
+            background: Some(Background::Color(brighter_by(style.palette().background, 0.02))),
+            ..Default::default()
+        }
+    }
 }
 
 fn hud_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>) -> Container<'a, Message> {
@@ -68,7 +85,7 @@ fn hud_list<'a>(registry: &'a Registry, selected_hud: Option<&'a HudName>) -> Co
         registry.iter().fold(column![].spacing(DEFAULT_SPACING), |c, info| {
             c.push(hud_info_view(info, selected_hud == Some(&info.name)))
         }),
-    ))
+    )).style(theme::Container::Custom(Box::new(BoxContainer{}))).padding(DEFAULT_SPACING)
 }
 
 struct UnselectedInfoView;
