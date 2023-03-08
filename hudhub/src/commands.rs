@@ -1,6 +1,6 @@
 use crate::state::{LoadStateError, State};
 use crate::Message;
-use hudhub_core::{fetch_package, install, uninstall, FetchError, HudDirectory, HudInfo, HudName, Source};
+use hudhub_core::{fetch_package, install, uninstall, FetchError, HudDirectory, HudInfo, HudName, Source, Install};
 use iced::Command;
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
@@ -52,8 +52,10 @@ fn search_hud_install(huds_directory: &Path) -> Vec<HudDirectory> {
             if let Ok(entry) = entry {
                 if let Ok(file_type) = entry.file_type() {
                     if file_type.is_dir() {
-                        if let Ok(directory) = HudDirectory::new(entry.path()) {
-                            directories.push(directory);
+                        if entry.path().join("info.vdf").exists() {
+                            if let Ok(directory) = HudDirectory::new(entry.path()) {
+                                directories.push(directory);
+                            }
                         }
                     }
                 }
@@ -98,14 +100,18 @@ pub fn install_hud(source: Source, name: HudName, huds_directory: PathBuf) -> Co
 }
 
 pub fn uninstall_hud(hud_info: &HudInfo, huds_directory: PathBuf) -> Command<Message> {
-    let hud_directory_path = hud_info.install.as_installed().unwrap().0.clone();
-    let hud_name = hud_info.name.clone();
+    if let Install::Installed { path, .. } = &hud_info.install {
+        let hud_name = hud_info.name.clone();
+        let hud_directory = path.clone();
 
-    Command::perform(
-        async move { uninstall(&hud_directory_path, huds_directory).await },
-        move |result| match result {
-            Ok(()) => Message::UninstallationFinished(hud_name),
-            Err(error) => Message::error(format!("Failed to uninstall HUD '{0}'", hud_name), error),
-        },
-    )
+        Command::perform(
+            async move { uninstall(&hud_directory, huds_directory).await },
+            move |result| match result {
+                Ok(()) => Message::UninstallationFinished(hud_name),
+                Err(error) => Message::error(format!("Failed to uninstall HUD '{0}'", hud_name), error),
+            },
+        )
+    } else {
+        Command::none()
+    }
 }
