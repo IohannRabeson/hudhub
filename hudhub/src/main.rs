@@ -84,6 +84,7 @@ struct Application {
     selected_hud: Option<HudName>,
     is_loading: bool,
     paths_provider: Box<dyn PathsProvider>,
+    testing_mode_enabled: bool,
 }
 
 impl Application {
@@ -156,10 +157,12 @@ impl IcedApplication for Application {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        let mut testing_mode_enabled = false;
         let paths_provider: Box<dyn PathsProvider> = match std::env::args().find(|arg| arg == "--testing-mode") {
             None => Box::new(DefaultPathsProvider::new()),
             Some(_) => {
                 println!("Testing mode enabled!");
+                testing_mode_enabled = true;
                 Box::new(TestPathsProvider::new())
             },
         };
@@ -173,6 +176,7 @@ impl IcedApplication for Application {
                 selected_hud: None,
                 is_loading: false,
                 paths_provider,
+                testing_mode_enabled,
             },
             Command::batch([
                 commands::load_state(application_state_file_path),
@@ -182,7 +186,10 @@ impl IcedApplication for Application {
     }
 
     fn title(&self) -> String {
-        "HudHub".into()
+        match self.testing_mode_enabled {
+            true => "HudHub - TESTING MODE".into(),
+            false => "HudHub".into()
+        }
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
