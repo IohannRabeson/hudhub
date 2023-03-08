@@ -1,7 +1,7 @@
 use crate::ui::{color, DEFAULT_SPACING};
 use crate::{AddViewMessage, ListViewMessage, Message};
-use hudhub_core::{HudInfo, HudName, Install, Registry, Source};
-use iced::widget::{button, column, container, row, scrollable, text, vertical_space, Container, Scrollable};
+use hudhub_core::{HudInfo, HudName, Install, Registry};
+use iced::widget::{button, column, container, row, scrollable, text, vertical_space, Container};
 use iced::{theme, Alignment, Background, Color, Element, Length, Theme};
 use iced_aw::Spinner;
 use crate::ui::color::brighter_by;

@@ -1,4 +1,3 @@
-use std::ffi::OsString;
 use crate::commands::save_state;
 use hudhub_core::{HudDirectory, HudName, Install, Source, Url};
 use iced::widget::text_input;
@@ -6,9 +5,7 @@ use iced::{
     event, subscription, window, Application as IcedApplication, Command, Element, Renderer, Settings, Subscription, Theme,
 };
 use iced_views::Views;
-use platform_dirs::AppDirs;
 use state::State;
-use std::path::PathBuf;
 use ui::add_view;
 use crate::paths::{DefaultPathsProvider, TestPathsProvider, PathsProvider};
 
